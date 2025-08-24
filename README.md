@@ -14,11 +14,11 @@ POM8 is an 8-bit microcontroller architecture that is designed to serve as an un
 * An out-of-the-box solution suitable for FPGA and Computer Engineering beginners.
 
 ## Installation & Usage
-1. Clone this repository
+1. Clone this repository.
 
 ```bash
 git clone https://github.com/Zachary-Pearce/POM8.git
 ```
 
 2. Import the rtl files into your project.
-3. Visit the wiki for a full guide on writing your "Hello World!"
+3. Visit the wiki for a full guide on writing your "Hello World!" program.

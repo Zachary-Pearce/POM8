@@ -3,7 +3,7 @@
 
 POM8 is an 8-bit microcontroller architecture that is designed to serve as an understandable and accessible example of architectural design and implementation. Designed through the [Pomegranate](https://github.com/Zachary-Pearce/Pomegranate) framework, it is a reconfigurable architecture with a small footprint and comparable performance to some modern architectures.
 
-![POM8 Block Diagram](/images/POM8%20Block%20Diagram.png)
+![POM8 Block Diagram](/documentation/images/POM8%20Block%20Diagram.png)
 
 ### Key Features
 * RISC-Harvard 8-bit single-cycle architecture.

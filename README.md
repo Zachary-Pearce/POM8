@@ -21,4 +21,4 @@ git clone https://github.com/Zachary-Pearce/POM8.git
 ```
 
 2. Import the rtl files into your project.
-3. Visit the wiki for a full guide on writing your "Hello World!" program.
+3. Visit the wiki for a full guide on writing your first program.

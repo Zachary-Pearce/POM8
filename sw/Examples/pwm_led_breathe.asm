@@ -1,4 +1,4 @@
-            STW 0x9011, 1   ; store 00000001 in the GPIO DDR
+            STW 0x9020, 1   ; store 00000001 in the GPIO DDR
             JMP start
 
 delay:      PUSH r0         ; preserve the original input

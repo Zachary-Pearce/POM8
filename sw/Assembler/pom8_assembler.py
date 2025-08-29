@@ -496,7 +496,7 @@ class Assembler():
 
 def write_file(bin_file_name: str, machine_code: list[str]):
     """
-    A function to write machine code .
+    A function to write machine code to a file.
 
     Parameters:
         bin_file_name (str): The name of the file to write to.

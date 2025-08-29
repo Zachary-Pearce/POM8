@@ -113,7 +113,7 @@ def read_file(asm_file_name: str) -> str:
     """
     A function to read an assembly text file and save the contents.
 
-    Args:
+    Parameters:
         asm_file_name (str): the name of the text file to read from.
     
     Returns:
@@ -131,7 +131,7 @@ def tokenise_asm(asm_file_name: str) -> list[list[Token]]:
     A function that tokenises each assembly line,
     creating a list of tokens for each line.
 
-    Args:
+    Parameters:
         asm_file_name (str): the name of the text file to read from.
 
     Returns:

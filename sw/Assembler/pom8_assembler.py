@@ -18,6 +18,7 @@ TODO:
 
 from pom8_tokeniser import *
 import sys
+import argparse
 
 class Assembler():
     """
@@ -493,13 +494,43 @@ class Assembler():
         """
         return self._machine_code
 
-#testing
+def write_file(bin_file_name: str, machine_code: list[str]):
+    """
+    A function to write machine code .
+
+    Parameters:
+        bin_file_name (str): The name of the file to write to.
+        machine_code (list[str]): The machine code to write.
+    """
+    bin_file = open(bin_file_name, "w")
+    bin_file.seek(0)
+
+    for line in machine_code:
+        bin_file.write(line + "\n")
+
+    bin_file.close()
+
 if __name__ == "__main__":
-    asm_file_name = "test.txt"
+    help_msg = "Convert a POM8 assembly file into machine code."
+    parser = argparse.ArgumentParser(description=help_msg)
+
+    parser.add_argument("Input", type=str, help="the input assembly (.asm) file name")
+    parser.add_argument("-o", "--Output", help="optional output binary file name")
+
+    #read input argumnets
+    args = parser.parse_args()
+
+    #convert the input file
+    asm_file_name = args.Input
     assembler = Assembler(asm_file_name)
     assembler.syntax_analysis()
     assembler.assemble()
 
     machine_code = assembler.get_machine_code()
-    for line in machine_code:
-        print(line)
+    if args.Output:
+        #if an output was provided
+        bin_file_name = args.Output
+        write_file(bin_file_name, machine_code)
+    else:
+        for line in machine_code:
+            print(line)

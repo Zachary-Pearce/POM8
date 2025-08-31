@@ -8,9 +8,9 @@ entity ALU is
         FLAG_NUM: natural := 6    --num of status flags
     );
     Port (
-        ALU_EN, ALU_IMM: in std_logic;
-        ALU_OP: in std_logic_vector(3 downto 0);
-        Rs, Rt, Immediate: in std_logic_vector(WORD_WIDTH-1 downto 0);
+        EN: in std_logic;
+        OP: in std_logic_vector(3 downto 0);
+        Rs, Rt: in std_logic_vector(WORD_WIDTH-1 downto 0);
         result_out: out std_logic_vector(WORD_WIDTH-1 downto 0);
         C_flag_in: in std_logic;
         flag_bus: out std_logic_vector(FLAG_NUM-1 downto 0)
@@ -20,28 +20,21 @@ end entity ALU;
 architecture ALU_RTL of ALU is
 --signals
 signal result: std_logic_vector(WORD_WIDTH downto 0);
-signal source, target: std_logic_vector(WORD_WIDTH-1 downto 0);
 --flags
-signal C_flag_out, Z_flag_out, N_flag_out, P_flag_out: std_logic;
+signal C_flag_out, Z_flag_out, N_flag_out, P_flag_out, V_flag_out: std_logic;
 begin
-    --COMBINATIONAL PART
-    --get the source and target
-    -- the target will either be from the register file or an immediate value
-    source <= Rs;
-    target <= Immediate when ALU_IMM = '1' else Rt;
-    
     --select ALU operation
-    with ALU_OP select
-        result <=   std_logic_vector(unsigned('0' & source) + unsigned('0' & target)) when "0000",
-                    std_logic_vector(unsigned('0' & source) - unsigned('0' & target)) when "0001",
-                    '0' & source and '0' & target when "0010",
-                    '0' & source or '0' & target when "0011",
-                    '0' & source xor '0' & target when "0100",
-                    '0' & (not source) when "0101",
-                    std_logic_vector(shift_left(unsigned('0' & source), 1)) when "0110",
-                    std_logic_vector(shift_right(unsigned('0' & source), 1)) when "0111",
-                    std_logic_vector(unsigned('0' & source) + unsigned('0' & target) + ("" & C_flag_in)) when "1000",
-                    std_logic_vector(unsigned('0' & source) - unsigned('0' & target) - ("" & C_flag_in)) when "1001",
+    with OP select
+        result <=   std_logic_vector(unsigned('0' & Rs) + unsigned('0' & Rt)) when "0000",
+                    std_logic_vector(unsigned('0' & Rs) - unsigned('0' & Rt)) when "0001",
+                    '0' & Rs and '0' & Rt when "0010",
+                    '0' & Rs or '0' & Rt when "0011",
+                    '0' & Rs xor '0' & Rt when "0100",
+                    '0' & (not Rs) when "0101",
+                    std_logic_vector(shift_left(unsigned('0' & Rs), 1)) when "0110",
+                    std_logic_vector(shift_right(unsigned('0' & Rs), 1)) when "0111",
+                    std_logic_vector(unsigned('0' & Rs) + unsigned('0' & Rt) + ("" & C_flag_in)) when "1000",
+                    std_logic_vector(unsigned('0' & Rs) - unsigned('0' & Rt) - ("" & C_flag_in)) when "1001",
                     "000000000" when others;
     
     --OUTPUT PART
@@ -51,5 +44,6 @@ begin
     N_flag_out <= result(WORD_WIDTH-1); --2's complement, if the MSB is set then the result is negative
     P_flag_out <= not result(WORD_WIDTH-1); --2's complement, if the MSB is cleared then the result is positive
     C_flag_out <= result(WORD_WIDTH); --the last bit of the result signal is the carry
+    V_flag_out <= (not Rs(7) and not Rt(7) and result(7)) or (Rs(7) and Rt(7) and not result(7))
     flag_bus <= Z_flag_out & N_flag_out & P_flag_out & C_flag_out & '0' when ALU_EN = '1' else (others => 'Z');
 end ALU_RTL;

@@ -4,17 +4,13 @@
 delay:      PUSH r0         ; preserve the original input
             SUBI r0, r0, 0  ; check if the input delay is 0
             BRZ loopDone
-redob:      LDW r2, 255     ; 255 * 255 * r0 cycle delay
-redoa:      LDW r1, 255
+redo:       LDW r1, 255     ; 255 * r0 cycle delay
 loopa:      SUBI r1, r1, 1  ; burn a cycle
             BRZ loopb
             JMP loopa
-loopb:      SUBI r2, r2, 1  ; burn a cycle
-            BRZ loopc
-            JMP redoa
-loopc:      SUBI r0, r0, 1  ; burn a cycle
+loopb:      SUBI r0, r0, 1  ; burn a cycle
             BRZ loopDone
-            JMP redob       ; if not zero, do it all again
+            JMP redo        ; if not zero, do it all again
 loopDone:   POP r0
             RET
 

@@ -404,8 +404,8 @@ class Assembler():
                 
                 machine_code_line = (opcode
                                      + "00000000"
-                                     + immediate
-                                     + "000000000000")
+                                     + "000000000000"
+                                     + immediate)
             elif self._format_lines[i] == "ADDRESSING_LOAD":
                 opcode = self.opcode[line[0].get_text()]
                 register_num = int(line[1].get_text()[1:], 10)

@@ -44,15 +44,16 @@ architecture Behavioral of POM8_tb is
 component POM8_Top is
     Port (
         CLK, RST: in std_logic;
---        op1: out opcode;
---        funct1: out funct;
---        inst_bus: out std_logic_vector(instruction_w-1 downto 0);
---        inst_adr_bus: out std_logic_vector(Iaddr_w-1 downto 0);
---        dat_bus: out std_logic_vector(word_w-1 downto 0);
---        dat_adr_bus: out std_logic_vector(Maddr_w-1 downto 0);
---        flg_bus: out std_logic_vector(4 downto 0);
         --I/O pins
-        pins: inout std_logic_vector(7 downto 0)
+        pins: inout std_logic_vector(7 downto 0);
+        --simulation
+        op1: out opcode;
+        fnct1: out funct;
+        data: out std_logic_vector(word_w-1 downto 0);
+        data_address: out std_logic_vector(Maddr_w-1 downto 0);
+        instruction: out std_logic_vector(instruction_w-1 downto 0);
+        instruction_address: out std_logic_vector(Iaddr_w-1 downto 0);
+        flag: out std_logic_vector(4 downto 0)
     );
 end component POM8_Top;
 
@@ -70,8 +71,8 @@ begin
 
 --instantiate the unit under test
 DUT: POM8_Top port map (
-    CLK => CLK, RST => RST, pins => pins --op1 => op, funct1 => fnct, inst_bus => inst_bus, inst_adr_bus => inst_adr_bus,
---    dat_bus => dat_bus, dat_adr_bus => dat_adr_bus, flg_bus => flg_bus
+    CLK => CLK, RST => RST, pins => pins, op1 => op, fnct1 => fnct, instruction => inst_bus, instruction_address => inst_adr_bus,
+    data => dat_bus, data_adress => dat_adr_bus, flag => flg_bus
 );
 
 pins <= "ZZZZZZZZ";

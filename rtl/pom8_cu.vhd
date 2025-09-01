@@ -37,7 +37,7 @@ entity CU is
 end entity CU;
 
 architecture Behavioral of CU is
-    type state_t is (FETCH, DECODE, REGISTER_EXECUTE, BRANCH_EXECUTE, ADDRESSING_EXECUTE, WRITE_BACK, MEM_WRITE_BACK, PC_SUBROUTINE_UPDATE);
+    type state_t is (FETCH, DECODE, REGISTER_EXECUTE, BRANCH_EXECUTE, ADDRESSING_EXECUTE, MEM_WRITE_BACK, PC_SUBROUTINE_UPDATE);
     signal state, state_next: state_t;
 begin
     --SEQUENTIAL PART
@@ -138,7 +138,11 @@ begin
                         --update flags
                         SR_WE <= '1';
                         SR_FLG <= '1';
-                        state_next <= WRITE_BACK;
+
+                        OUT_SEL <= "10";
+                        RF_CS <= '1';
+                        RF_WE <= '1';
+                        state_next <= FETCH;
                 end case;
             when BRANCH_EXECUTE =>
                 case op is
@@ -228,6 +232,20 @@ begin
                         MEM_WRITE <= '1';
                         state_next <= FETCH;
                 end case;
+            when MEM_WRITE_BACK =>
+                OUT_SEL <= "11";
+                RF_CS <= '1';
+                RF_WE <= '1';
+                state_next <= FETCH;
+            when PC_SUBROUTINE_UPDATE =>
+                if op = CALL
+                    DAT_SEL <= "10";
+                else --if RET
+                    OUT_SEL <= "11";
+                end if;
+                PC_UPDATE <= '1';
+
+                state_next <= DECODE;
         end case;
     end process main_fsm;
 

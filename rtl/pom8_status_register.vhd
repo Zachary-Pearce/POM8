@@ -3,7 +3,6 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 entity Status_Register is
     Generic (
-        WORD_WIDTH: natural := 8;
         FLAG_NUM: natural := 6
     );
     Port (

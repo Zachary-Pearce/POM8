@@ -238,6 +238,12 @@ begin
                         state_next <= FETCH;
                 end case;
             when MEM_WRITE_BACK =>
+                if op = LDI then
+                    ADR_SEL <= "11";
+                elsif op = LDR then
+                    ADR_SEL <= "01";
+                end if;
+
                 OUT_SEL <= "11";
                 RF_CS <= '1';
                 RF_WE <= '1';

@@ -237,6 +237,10 @@ signal ALU_reg_out: std_logic_vector(word_w-1 downto 0);
 signal DMEM_out: std_logic_vector(word_w-1 downto 0);
 signal GPIO_CS: std_logic;
 signal DMEM_CS: std_logic;
+signal GPIO_out: std_logic_vector(word_w-1 downto 0);
+signal GPIO_reg_out: std_logic_vector(word_w-1 downto 0);
+signal GPIO_reg_WE: std_logic;
+signal MEM_out: std_logic_vector(word_w-1 downto 0);
 
 begin
 
@@ -278,6 +282,7 @@ data <= data_bus;
 data_address <= data_address_bus;
 instruction <= instruction_bus;
 instruction_address <= instruction_address_bus;
+flag <= flag_bus;
 
 --status register instance
 SR_inst: Status_Register generic map (
@@ -402,7 +407,7 @@ ALU_out_reg: reg_prim generic map (
 with OUT_SEL select
     data_bus <= ALU_reg_out when "01",
                 ALU_out when "10",
-                DMEM_out when "11",
+                MEM_out when "11",
                 (others => 'Z') when others;
 
 --==========================================================--
@@ -435,8 +440,8 @@ with ADR_SEL select
                         (others => 'Z') when others;
 
 --memory map logic
-GPIO_CS <= '1' when to_integer(unsigned(data_address_bus)) >= find_device_address(GPIO) and (MEM_READ = '1' OR MEM_WRITE = '1') else '0';
-DMEM_CS <= '1' when to_integer(unsigned(data_address_bus)) >= find_device_address(RAM) and to_integer(unsigned(data_address_bus)) < find_device_address(GPIO) and (MEM_READ = '1' OR MEM_WRITE = '1') else '0';
+GPIO_CS <= '1' when to_integer(unsigned(data_address_bus)) >= find_device_address(GPIO) else '0';
+DMEM_CS <= '1' when to_integer(unsigned(data_address_bus)) >= find_device_address(RAM) and to_integer(unsigned(data_address_bus)) < find_device_address(GPIO) else '0';
 
 --data memory instance
 DM_inst: Memory_ITF generic map (
@@ -464,8 +469,22 @@ GPIO_inst: GPIO_Controller generic map (
     RnW => MEM_READ,
     RS => data_address_bus(5 downto 4),
     din => data_bus,
-    dout => data_bus,
+    dout => GPIO_out,
     pins => pins
 );
+
+GPIO_reg_WE <= GPIO_CS and MEM_READ;
+--GPIO output register
+GPIO_out_reg: reg_prim generic map (
+    word_w
+) port map (
+    CLK => CLK,
+    ARST => RST,
+    WE => GPIO_reg_WE,
+    din => GPIO_out,
+    dout => GPIO_reg_out
+);
+
+MEM_out <= GPIO_reg_out when GPIO_CS = '1' and DMEM_CS = '0' else DMEM_out;
 
 end Behavioral;

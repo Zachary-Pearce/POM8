@@ -256,7 +256,7 @@ begin
                 end if;
                 PC_UPDATE <= '1';
 
-                state_next <= DECODE;
+                state_next <= FETCH;
         end case;
     end process main_fsm;
 

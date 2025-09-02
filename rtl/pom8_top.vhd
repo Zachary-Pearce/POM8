@@ -120,8 +120,9 @@ component reg_file is
     );
     port (
 		CLK, ARST, WE, CS: in std_logic;
+		din: in std_logic_vector(REGISTER_WIDTH-1 downto 0);
 		--register address inputs
-		source_register, target_register, destination_register: std_logic_vector(REG_ADDRESS_WIDTH-1 downto 0);
+		source_register, target_register, destination_register: in std_logic_vector(REG_ADDRESS_WIDTH-1 downto 0);
 		--Read outputs (source and target)
 		source_out, target_out: out std_logic_vector(REGISTER_WIDTH-1 downto 0)
     );
@@ -351,6 +352,7 @@ RF_inst: reg_file generic map (
     ARST => RST,
     WE => RF_WE,
     CS => RF_CS,
+    din => data_bus,
     source_register => instruction_bus(AddressIndex(register_format, Rs) downto AddressIndex(register_format, Rs)-(Raddr_w-1)),
     target_register => instruction_bus(AddressIndex(register_format, Rt) downto AddressIndex(register_format, Rt)-(Raddr_w-1)),
     destination_register => instruction_bus(AddressIndex(register_format, Rd) downto AddressIndex(register_format, Rd)-(Raddr_w-1)),

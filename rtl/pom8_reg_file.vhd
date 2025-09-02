@@ -9,8 +9,9 @@ entity reg_file is
     );
     port (
 		CLK, ARST, WE, CS: in std_logic;
+		din: in std_logic_vector(REGISTER_WIDTH-1 downto 0);
 		--register address inputs
-		source_register, target_register, destination_register: std_logic_vector(REG_ADDRESS_WIDTH-1 downto 0);
+		source_register, target_register, destination_register: in std_logic_vector(REG_ADDRESS_WIDTH-1 downto 0);
 		--Read outputs (source and target)
 		source_out, target_out: out std_logic_vector(REGISTER_WIDTH-1 downto 0)
     );
@@ -32,7 +33,7 @@ begin
                --write and bypass
 		       if WE = '1' then
 		           --write to destination register
-		           registers(to_integer(unsigned(destination_register))) <= data_bus(REGISTER_WIDTH-1 downto 0);
+		           registers(to_integer(unsigned(destination_register))) <= din(REGISTER_WIDTH-1 downto 0);
 		       end if;
 		   end if;
 	   end if;

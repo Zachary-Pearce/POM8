@@ -8,7 +8,7 @@ entity ALU is
         FLAG_NUM: natural := 6    --num of status flags
     );
     Port (
-        EN: in std_logic;
+        EN, STAT: in std_logic;
         OP: in std_logic_vector(3 downto 0);
         Rs, Rt: in std_logic_vector(WORD_WIDTH-1 downto 0);
         result_out: out std_logic_vector(WORD_WIDTH-1 downto 0);
@@ -44,6 +44,6 @@ begin
     N_flag_out <= result(WORD_WIDTH-1); --2's complement, if the MSB is set then the result is negative
     P_flag_out <= not result(WORD_WIDTH-1); --2's complement, if the MSB is cleared then the result is positive
     C_flag_out <= result(WORD_WIDTH); --the last bit of the result signal is the carry
-    V_flag_out <= (not Rs(7) and not Rt(7) and result(7)) or (Rs(7) and Rt(7) and not result(7))
-    flag_bus <= Z_flag_out & N_flag_out & P_flag_out & C_flag_out & '0' when EN = '1' else (others => 'Z');
+    V_flag_out <= (not Rs(7) and not Rt(7) and result(7)) or (Rs(7) and Rt(7) and not result(7));
+    flag_bus <= Z_flag_out & N_flag_out & P_flag_out & C_flag_out & V_flag_out when (EN = '1' and STAT = '1') else (others => 'Z');
 end ALU_RTL;

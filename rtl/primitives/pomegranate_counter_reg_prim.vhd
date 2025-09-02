@@ -4,7 +4,8 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity counter_reg_prim is
     generic (
-        ADDRESS_WIDTH: natural := 8
+        ADDRESS_WIDTH: natural := 8;
+        INIT: std_logic_vector(ADDRESS_WIDTH-1 downto 0) := "00000000"
     );
     port (
         CLK, ARST: in std_logic;
@@ -12,7 +13,7 @@ entity counter_reg_prim is
         address_next: in std_logic_vector(ADDRESS_WIDTH-1 downto 0);
         address_out: out std_logic_vector(ADDRESS_WIDTH-1 downto 0)
     );
-end entity;
+end entity counter_reg_prim;
 
 architecture counter_reg_prim_rtl of counter_reg_prim is
     --signals

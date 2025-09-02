@@ -30,7 +30,7 @@ architecture Behavioral of POM8_Top is
 component counter_reg_prim is
     generic (
         ADDRESS_WIDTH: natural := 8;
-        INIT: std_logic_vector(ADDRESS_WIDTH-1 downto 0) := "00000000"
+        INIT: std_logic_vector(7 downto 0) := "00000000"
     );
     port (
         CLK, ARST: in std_logic;
@@ -314,8 +314,8 @@ PC_old_reg: reg_prim generic map (
     CLK => CLK,
     ARST => RST,
     WE => IR_WRITE,
-    address_next => instruction_address_bus,
-    address_out => PC_old
+    din => instruction_address_bus,
+    dout => PC_old
 );
 
 --instruction memory instance
@@ -376,6 +376,7 @@ ALU_inst: ALU generic map (
     5 --the number of status flags
 ) port map (
     EN => ALU_EN,
+    STAT => ALU_STAT,
     OP => ALU_OP,
     Rs => SRC_MUX_out,
     Rt => TAR_MUX_out,
@@ -419,7 +420,7 @@ SP_inst: Stack_Pointer generic map (
 ) port map (
     CLK => CLK,
     RST => RST,
-    enable => SP_ENABLE,
+    enable => SP_EN,
     Pntr_INC => SP_UPDATE,
     address => data_address_bus
 );
@@ -439,7 +440,7 @@ DMEM_CS <= '1' when to_integer(unsigned(data_address_bus)) >= find_device_addres
 DM_inst: Memory_ITF generic map (
     word_w,
     Maddr_w
-) port (
+) port map (
     CLK => CLK,
     WE => MEM_WRITE,
     CS => DMEM_CS,

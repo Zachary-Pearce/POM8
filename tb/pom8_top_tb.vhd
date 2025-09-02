@@ -72,7 +72,7 @@ begin
 --instantiate the unit under test
 DUT: POM8_Top port map (
     CLK => CLK, RST => RST, pins => pins, op1 => op, fnct1 => fnct, instruction => inst_bus, instruction_address => inst_adr_bus,
-    data => dat_bus, data_adress => dat_adr_bus, flag => flg_bus
+    data => dat_bus, data_address => dat_adr_bus, flag => flg_bus
 );
 
 pins <= "ZZZZZZZZ";

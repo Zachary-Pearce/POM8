@@ -257,7 +257,7 @@ begin
     --alu decoder
     alu_decoder: process(state, fnct) is
     begin
-        case steate is
+        case state is
             when FETCH =>
                 ALU_OP <= "0000";
             when others =>

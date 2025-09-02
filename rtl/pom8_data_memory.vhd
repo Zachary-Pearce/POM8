@@ -18,8 +18,8 @@ entity Memory_ITF is
     );
 end entity Memory_ITF;
 
---this memory is designed for single clock operation
--- by foregoing an output register, the cycles to read is only one but the logic delay of the critical path increases
+--this module is designed specifically for BRAM implementation
+-- this inherently results in a 2 clock cycle read time
 architecture Memory_ITF_RTL of Memory_ITF is
     --ram data type
     type ram_type is array (0 to (2**k)-1) of std_logic_vector(n-1 downto 0);

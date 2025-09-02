@@ -132,7 +132,7 @@ begin
                         state_next <= FETCH;
                     when others => --ALU operations
                         SRC_SEL <= "10";
-                        if fnct = ADDI or funct = SUBI or funct = ANDI or funct = ORI or funct = XORI then
+                        if fnct = ADDI or fnct = SUBI or fnct = ANDI or fnct = ORI or fnct = XORI then
                             TAR_SEL <= "01";
                         else
                             TAR_SEL <= "00";
@@ -164,40 +164,40 @@ begin
                     when JMP =>
                         DAT_SEL <= "10";
                         PC_UPDATE <= '1';
-                        state_next <= FETCH
+                        state_next <= FETCH;
                     --for branches we jump if the relevant flag is set
                     when BRZ =>
                         if flag_bus(4) = '1' then
                             DAT_SEL <= "10";
                             PC_UPDATE <= '1';
                         end if;
-                        state_next <= FETCH
+                        state_next <= FETCH;
                     when BRN =>
                         if flag_bus(3) = '1' then
                             DAT_SEL <= "10";
                             PC_UPDATE <= '1';
                         end if;
-                        state_next <= FETCH
+                        state_next <= FETCH;
                     when BRP =>
                         if flag_bus(2) = '1' then
                             DAT_SEL <= "10";
                             PC_UPDATE <= '1';
                         end if;
-                        state_next <= FETCH
+                        state_next <= FETCH;
                     when BRC =>
                         if flag_bus(1) = '1' then
                             DAT_SEL <= "10";
                             PC_UPDATE <= '1';
                         end if;
-                        state_next <= FETCH
+                        state_next <= FETCH;
                     when BRV =>
                         if flag_bus(0) = '1' then
                             DAT_SEL <= "10";
                             PC_UPDATE <= '1';
                         end if;
-                        state_next <= FETCH
+                        state_next <= FETCH;
                     when others => --NOP
-                        state_next <= FETCH --these do nothing
+                        state_next <= FETCH; --these do nothing
                 end case;
             when ADDRESSING_EXECUTE =>
                 case (op) is
@@ -243,7 +243,7 @@ begin
                 RF_WE <= '1';
                 state_next <= FETCH;
             when PC_SUBROUTINE_UPDATE =>
-                if op = CALL
+                if op = CALL then
                     DAT_SEL <= "10";
                 else --if RET
                     OUT_SEL <= "11";
@@ -255,30 +255,34 @@ begin
     end process main_fsm;
 
     --alu decoder
-    alu_decoder: process(fnct) is
+    alu_decoder: process(state, fnct) is
     begin
-        ALU_OP <= "0000"; --default value
-        case fnct is
-            when SUB | SUBI =>
-                ALU_OP <= "0001";
-            when ANDG | ANDI =>
-                ALU_OP <= "0010";
-            when ORG | ORI =>
-                ALU_OP <= "0011";
-            when XORG | XORI =>
-                ALU_OP <= "0100";
-            when NOTG =>
-                ALU_OP <= "0101";
-            when LSL =>
-                ALU_OP <= "0110";
-            when LSR =>
-                ALU_OP <= "0111";
-            when ADDC =>
-                ALU_OP <= "1000";
-            when SUBC =>
-                ALU_OP <= "1001";
-            when others => --ADD, ADDI, and unknowns
+        case steate is
+            when FETCH =>
                 ALU_OP <= "0000";
+            when others =>
+                case fnct is
+                    when SUB | SUBI =>
+                        ALU_OP <= "0001";
+                    when ANDG | ANDI =>
+                        ALU_OP <= "0010";
+                    when ORG | ORI =>
+                        ALU_OP <= "0011";
+                    when XORG | XORI =>
+                        ALU_OP <= "0100";
+                    when NOTG =>
+                        ALU_OP <= "0101";
+                    when LSL =>
+                        ALU_OP <= "0110";
+                    when LSR =>
+                        ALU_OP <= "0111";
+                    when ADDC =>
+                        ALU_OP <= "1000";
+                    when SUBC =>
+                        ALU_OP <= "1001";
+                    when others => --ADD, ADDI, and unknowns
+                        ALU_OP <= "0000";
+                end case;
         end case;
     end process alu_decoder;
 end Behavioral;

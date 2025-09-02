@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity PC_prim is
+entity counter_reg_prim is
     generic (
         ADDRESS_WIDTH: natural := 8
     );
@@ -14,12 +14,12 @@ entity PC_prim is
     );
 end entity;
 
-architecture PC_prim_rtl of PC_prim is
+architecture counter_reg_prim_rtl of counter_reg_prim is
     --signals
     signal counter_reg: std_logic_vector(ADDRESS_WIDTH-1 downto 0);
 begin
     --SEQUENTIAL PART
-    PC_update: process (CLK, ARST) is
+    counter_update: process (CLK, ARST) is
     begin
         if ARST = '1' then
             counter_reg <= (others => '0');
@@ -28,8 +28,8 @@ begin
                 counter_reg <= address_next;
             end if;
         end if;
-    end process PC_update;
+    end process counter_update;
 
     --OUTPUT PART
     address_out <= counter_reg;
-end architecture PC_prim_rtl;
+end architecture counter_reg_prim_rtl;

@@ -48,7 +48,7 @@ component CU is
         flag_bus: inout std_logic_vector(4 downto 0);
         --control signals
         --ALU
-        ALU_EN: out std_logic;
+        ALU_EN, ALU_STAT: out std_logic;
         ALU_OP: out std_logic_vector(3 downto 0);
         --Data memory
         MEM_WRITE, MEM_READ: out std_logic;
@@ -133,7 +133,7 @@ component ALU is
         FLAG_NUM: natural := 6    --num of status flags
     );
     Port (
-        EN: in std_logic;
+        EN, STAT: in std_logic;
         OP: in std_logic_vector(3 downto 0);
         Rs, Rt: in std_logic_vector(WORD_WIDTH-1 downto 0);
         result_out: out std_logic_vector(WORD_WIDTH-1 downto 0);
@@ -204,7 +204,7 @@ signal instruction_address_bus: std_logic_vector(Iaddr_w-1 downto 0);
 signal flag_bus: std_logic_vector(4 downto 0);
 
 --control signals
-signal ALU_EN: std_logic;
+signal ALU_EN, ALU_STAT: std_logic;
 signal ALU_OP: std_logic_vector(3 downto 0);
 signal MEM_WRITE, MEM_READ: std_logic;
 signal PC_UPDATE: std_logic;
@@ -221,8 +221,6 @@ signal SRC_SEL: std_logic_vector(1 downto 0);
 signal TAR_SEL: std_logic_vector(1 downto 0);
 
 --MUX's
-signal OUT_MUX_out: std_logic_vector(word_w-1 downto 0);
-signal ADR_MUX_out: std_logic_vector(Maddr_w-1 downto 0);
 signal SRC_MUX_out: std_logic_vector(word_w-1 downto 0);
 signal TAR_MUX_out: std_logic_vector(word_w-1 downto 0);
 
@@ -252,6 +250,7 @@ CU_inst: CU port map (
     fnct => slv2funct(instruction_bus(19 downto 15)),
     flag_bus => flag_bus,
     ALU_EN => ALU_EN,
+    ALU_STAT => ALU_STAT,
     ALU_OP => ALU_OP,
     MEM_WRITE => MEM_WRITE,
     MEM_READ => MEM_READ,
@@ -283,13 +282,13 @@ SR_inst: Status_Register generic map (
     5 --the number of status flags
 ) port map (
     CLK => CLK,
-    ARST => ARST,
+    ARST => RST,
     WE => SR_WE,
     FLG => SR_FLG,
     CnS => SR_CnS,
     C_out => C_flag,
     flag_bus => flag_bus
-)
+);
 
 --==========================================================--
 --THE INSTRUCTION MEMORY SECTION                            --
@@ -311,11 +310,11 @@ PC_old_reg: reg_prim generic map (
     Iaddr_w
 ) port map (
     CLK => CLK,
-    ARST => ARST,
+    ARST => RST,
     WE => IR_WRITE,
     address_next => instruction_address_bus,
     address_out => PC_old
-)
+);
 
 --instruction memory instance
 PM_inst: program_memory generic map (
@@ -331,11 +330,11 @@ IR_inst: reg_prim generic map (
     instruction_w
 ) port map (
     CLK => CLK,
-    ARST => ARST,
+    ARST => RST,
     WE => IR_WRITE,
     din => ROM_instruction,
     dout => instruction_bus
-)
+);
 
 --==========================================================--
 --THE REGISTER SECTION                                      --
@@ -347,7 +346,7 @@ RF_inst: reg_file generic map (
     Raddr_w
 ) port map (
     CLK => CLK,
-    ARST => ARST,
+    ARST => RST,
     WE => RF_WE,
     CS => RF_CS,
     source_register => instruction_bus(AddressIndex(register_format, Rs) downto AddressIndex(register_format, Rs)-(Raddr_w-1)),
@@ -388,11 +387,11 @@ ALU_out_reg: reg_prim generic map (
     word_w
 ) port map (
     CLK => CLK,
-    ARST => ARST,
+    ARST => RST,
     WE => ALU_EN,
     din => ALU_out,
     dout => ALU_reg_out
-)
+);
 
 --ALU output MUX
 with OUT_SEL select
@@ -455,13 +454,13 @@ GPIO_inst: GPIO_Controller generic map (
     2
 ) port map (
     CLK => CLK,
-    ARST => ARST,
+    ARST => RST,
     CS => GPIO_CS,
     RnW => MEM_READ,
     RS => data_address_bus(5 downto 4),
     din => data_bus,
     dout => data_bus,
     pins => pins
-)
+);
 
 end Behavioral;

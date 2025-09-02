@@ -12,7 +12,7 @@ entity CU is
         flag_bus: inout std_logic_vector(4 downto 0);
         --control signals
         --ALU
-        ALU_EN: out std_logic;
+        ALU_EN, ALU_STAT: out std_logic;
         ALU_OP: out std_logic_vector(3 downto 0);
         --Data memory
         MEM_WRITE, MEM_READ: out std_logic;
@@ -37,7 +37,7 @@ entity CU is
 end entity CU;
 
 architecture Behavioral of CU is
-    type state_t is (FETCH, DECODE, REGISTER_EXECUTE, BRANCH_EXECUTE, ADDRESSING_EXECUTE, MEM_WRITE_BACK, PC_SUBROUTINE_UPDATE);
+    type state_t is (BOOT, FETCH, DECODE, REGISTER_EXECUTE, BRANCH_EXECUTE, ADDRESSING_EXECUTE, MEM_WRITE_BACK, PC_SUBROUTINE_UPDATE);
     signal state, state_next: state_t;
 begin
     --SEQUENTIAL PART
@@ -45,7 +45,7 @@ begin
     fsm_sync: process(clk, arst) is
     begin
         if arst = '1' then
-            state <= FETCH;
+            state <= BOOT;
         elsif rising_edge(clk) then
             state <= state_next;
         end if;
@@ -53,10 +53,11 @@ begin
 
     --COMBINATIONAL PART
     --main fsm
-    main_fsm: process(state) is
+    main_fsm: process(state, op, fnct, flag_bus) is
     begin
         --control signal defaults
         ALU_EN <= '0';
+        ALU_STAT <= '0';
         MEM_WRITE <= '0';
         MEM_READ <= '0';
         PC_UPDATE <= '0';
@@ -73,10 +74,13 @@ begin
         DAT_SEL <= "00"; -- Z, Rs, Imm, PC
         SRC_SEL <= "00"; -- PC, PC_OLD, Rs, Rs
         TAR_SEL <= "00"; -- Rt, Imm, 1, Rt
+        state_next <= FETCH;
         flag_bus <= "ZZZZZ";
 
         --state machine
         case state is
+            when BOOT =>
+                state_next <= FETCH;
             when FETCH =>
                 PC_UPDATE <= '1';
                 SRC_SEL <= "00";
@@ -136,6 +140,7 @@ begin
 
                         ALU_EN <= '1';
                         --update flags
+                        ALU_STAT <= '1';
                         SR_WE <= '1';
                         SR_FLG <= '1';
 

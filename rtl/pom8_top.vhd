@@ -26,6 +26,19 @@ architecture Behavioral of POM8_Top is
 
 --components
 
+--counter register primitive
+component counter_reg_prim is
+    generic (
+        ADDRESS_WIDTH: natural := 8
+    );
+    port (
+        CLK, ARST: in std_logic;
+        WE: in std_logic;
+        address_next: in std_logic_vector(ADDRESS_WIDTH-1 downto 0);
+        address_out: out std_logic_vector(ADDRESS_WIDTH-1 downto 0)
+    );
+end component;
+
 --register primitive
 component reg_prim is
     generic (
@@ -85,19 +98,6 @@ component Status_Register is
         flag_bus: inout std_logic_vector(FLAG_NUM-1 downto 0)
     );
 end component Status_Register;
-
---program counter
-component PC_prim is
-    generic (
-        ADDRESS_WIDTH: natural := 8
-    );
-    port (
-        CLK, ARST: in std_logic;
-        WE: in std_logic;
-        address_next: in std_logic_vector(ADDRESS_WIDTH-1 downto 0);
-        address_out: out std_logic_vector(ADDRESS_WIDTH-1 downto 0)
-    );
-end component PC_prim;
 
 --instruction memory
 component program_memory is
@@ -295,7 +295,7 @@ SR_inst: Status_Register generic map (
 --==========================================================--
 
 --program counter instance
-PC_inst: PC_prim generic map (
+PC_inst: counter_reg_prim generic map (
     Iaddr_w
 ) port map (
     CLK => CLK,

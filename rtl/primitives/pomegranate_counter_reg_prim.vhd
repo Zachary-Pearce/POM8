@@ -24,7 +24,7 @@ begin
     begin
         if ARST = '1' then
             counter_reg <= (others => '0');
-        elsif rising_edge(CLK):
+        elsif rising_edge(CLK) then
             if WE = '1' then
                 counter_reg <= address_next;
             end if;

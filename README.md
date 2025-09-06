@@ -16,7 +16,7 @@ POM8 is an 8-bit microcontroller architecture that is designed to serve as an un
 ## Installation & Usage
 
 ### :toolbox: Software and Hardware Tools
-Feel free to bring your own software and/or FPGA platform, however for the most seamless and beginner friendly experience, we reccomend:
+Feel free to bring your own software and/or FPGA platform, however for the most seamless and beginner friendly experience, we recommend:
 
 * You use the [Standard Edition of the Vivado Design Suite](https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vivado-design-tools.html) as your development environment.
 * And use the [Basys 3](https://digilent.com/shop/basys-3-amd-artix-7-fpga-trainer-board-recommended-for-introductory-users/) FPGA development board by Digilent for a fairly capable but relatively inexpensive platform that is designed for use with Vivado.
@@ -32,4 +32,4 @@ git clone https://github.com/Zachary-Pearce/POM8.git
 3. Write and assemble your first program.
 
 > [!TIP]
-> The user guide has more details for getting started with POM8.
+> The handbook has more details for getting started with POM8.

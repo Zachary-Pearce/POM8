@@ -1,0 +1,69 @@
+<<<
+:sectnums:
+== Development Enviroment Setup
+
+To begin using POM8, you will need a software suite for the synthesis and analysis of VHDL. You can bring your own preferred software, however this section will focus on the out-of-box experience for a beginner, as such we will discuss the following in this section:
+
+[start=1]
+. *<<Vivado Install>>* - Installing the Xilinx Vivado standard edition.
+. *<<Setting up Devices>>* - Installing the recommended Digilent devices for Vivado.
+. *<<Setting up the Project Files>>* - Importing the POM8 VHDL code into a new Vivado Project.
+
+=== Vivado Install
+The Vivado installer can be downloaded from link:https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vivado-design-tools.html[here]. There are several installers available, however we recommend using the "Self Extract Web Installer" for your operating system.
+
+[start=1]
+. Enter your account details, select "Download and Install now" and click "Next".
+. Select "Vivado" and on the next page select "Vivado ML Standard".
+. You should now be on the <<#img-inst-customisation,installation customisation step>>. Vivado is a very large software, if you want to minimise disk usage then you can just select the Vivado Design Suite and license key options. This will install a 'blank' version with no devices setup, an issue we will solve in the <<Setting up Devices,setting up devices>> section.
+
+.This will limit your device options!
+[IMPORTANT]
+This approach will limit the possible FPGAs you can use with Vivado unless you install them manually later. The following steps will still need to be followed even if all default devices are installed.
+
+[start=4]
+. Follow the remaining steps of the installer and wait...
+
+.Installation Customisation Step
+[#img-inst-customisation]
+image::Vivado-Installation-Customisation.png[Installation Customisation,align=center,pdfwidth=50vw]
+
+=== Setting up Devices
+
+In this context, device means the FPGA development boards that Vivado can interact with. Setting up a device requires installing the relevant board file, you will need to follow the manufacturers guide on how to get those.
+
+We personally reccomend beginners use the Basys 3 development board by Digilent for two reasons:
+
+* POM8 was hardware tested on the Nexys4 which uses the same Artix-7 chip as the Basys3. As such, we can gaurantee it works out of the box.
+* Additionally, it is a capable but relatively inexpensive option when compared to similar development boards.
+
+You can find a guide on how to install the board files from Digilent link:https://digilent.com/reference/software/vivado/board-files?redirect=1[here].
+
+=== Setting up the Project Files
+
+Now that Vivado is completely setup with the relevant devices installed, we can create a new project and import the VHDL code into it. But first, let's download the repository files by cloning it.
+
+[source,bash]
+----
+git clone https://github.com/Zachary-Pearce/POM8.git
+----
+
+[start=1]
+. Open up Vivado and click create project under quick start, give it a name, and on the next page select "RTL Project"
+. On the add sources step, click add files and navigate to where you cloned the repository, add all files from the link:https://github.com/Zachary-Pearce/POM8/tree/main/rtl[rtl folder], including those in the "packages" and "primitives" sub-folders. The final list should look something like <<#final-sources,this>>.
+
+.Final List of Added Sources
+[#final-sources]
+image::Final_Source_List.png[Added Sources,align=center,pdfwidth=50vw]
+
+<<<
+
+[start=3]
+. The next step will ask you to add a constraints file, these are provided by the manufacturer for the specific device you are using. For the reccomended Basys3 board, you can find the file and instructions link:https://digilent.com/reference/programmable-logic/guides/vivado-xdc-file[here].
+. Vivado will now ask you to select a default part, this will by default open on the "Parts" tab. However it will be much easier to go to the "Boards" tab and search for the development board you are using there. Just ensure that the board you choose here matches the constraints file you added in the previous step.
+. A preview of the project settings will now be shown, verify that the project settings match what you expect, and finally click "Finish" to create your project. Vivado should now open your project in the "Project Manager" view.
+. Unfortunately, there is one last step before we can get started, we need to import the testbench file which will allow us to run simulations later.
+.. Go to the source window in the top right and right click on "Simulation Sources" and select "Add Sources."
+.. In the same fashion as before, click add files and navigate to the link:https://github.com/Zachary-Pearce/POM8/tree/main/tb[tb] folder in the cloned repository. Add the "pom8_top_tb.vhd" file.
+
+Congratulations, you have now setup the POM8 project in Vivado. The remainder of this guide will give a high-level overview of POM8's architecture, explain the syntax of the assembly langauge, and provide some hello world examples.

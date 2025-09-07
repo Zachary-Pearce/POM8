@@ -1,0 +1,17 @@
+:doctype: book
+:title: The POM8 Microcontroller Handbook
+:icons: font
+:toc: left
+:imagesdir: ../images
+:title-logo-image: image::pomeg-dark.png[align=center]
+
+= title
+
+[preface]
+== Preface
+This book assumes some basic knowledge in FPGAs and Hardware Description Languages, specifically VHDL. If you are unsure what these terms mean, please take a look at some of the recommended resources below:
+
+* link:https://nandland.com/fpga-101/[NAND Land FPGA-101]
+* link:https://nandland.com/learn-vhdl/[NAND Land VHDL Tutorials]
+
+include::dev_environment_setup.adoc[]

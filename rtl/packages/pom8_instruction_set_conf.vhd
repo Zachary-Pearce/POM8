@@ -19,18 +19,20 @@ use ieee.numeric_std.all;
 
 --package declarations
 package pomegranate_inst_conf is
-    ------ VARIABLES ------
-    
-    constant word_w: NATURAL := 8; --the width of the data bus
+--==========================================================--
+--VARIABLES                                                 --
+--==========================================================--
+
+    constant word_w: NATURAL := 8; --the width of a word
     constant instruction_w: NATURAL := 32; --the width of instructions
     constant op_w: NATURAL := 4;    --the number of bits reserved for the opcode in instructions
     constant Raddr_w: NATURAL := 4; --the number of bits reserved for register addresses
-    constant Maddr_w: NATURAL := 16; --the number of bits reserved for memory addresses
+    constant Daddr_w: NATURAL := 16; --the number of bits reserved for data addresses
     constant Iaddr_w: NATURAL := 8; --the number of bits reserved for instruction addresses
     
-    --opcode mnemonics
-    type opcode is
+    type opcodes is
     (
+        --your opcodes go here...
         NA,
         NOP,
         CALL,
@@ -48,8 +50,7 @@ package pomegranate_inst_conf is
         STW,
         STI
     );
-    
-    --funct mnemonics
+
     type funct is
     (
         ADD,
@@ -75,215 +76,163 @@ package pomegranate_inst_conf is
         CLRV
     );
     
-    --operands
     type operands is
     (
+        --your operands go here...
         Rd,
         Rs,
         Rt,
         Immediate1,
-        Immediate2,
-        Mode
+        Immediate2
     );
-    
-    --instruction formats
+
     type formats is
     (
+        --your instruction formats go here...
         register_format,
         branch_format,
         addressing_format
     );
 
-    --INSTRUCTION FORMAT CHECK FUNCTIONS
+--==========================================================--
+--FUNCTIONS                                                 --
+--==========================================================--
 
-    -- register format check
-    function RFormatCheck (op: in opcode) return std_logic;
+    ---- FORMAT CHECK FUNCTIONS ----
+    -- these functions determine which instructions are in which format
+    -- these functions must be synthesisable as they will be used in control unit logic
 
-    -- branch format check
-    function BFormatCheck (op: in opcode) return std_logic;
+    --register format check
+    function RFormatCheck (op: in opcodes) return std_logic;
 
-    -- address format check
-    function AFormatCheck (op: in opcode) return std_logic;
+    --branch format check
+    function BFormatCheck (op: in opcodes) return std_logic;
 
-    --OPCODE FUNCTIONS
+    --addressing format check
+    function AFormatCheck (op: in opcodes) return std_logic;
     
-    -- address index function
-    function AddressIndex (instruction_format: in formats := branch_format; operand: in operands := Rs) return NATURAL;
+    ---- HELPER FUNCTIONS, DO NOT EDIT THESE ----
+    --get operand function
+    -- gets just the operand from a given standard logic vector
+    -- as this forms connections between modules, there should be no decision logic here
+    function GetOperand (slv: in std_logic_vector; instruction_format: in formats; operand: in operands) return std_logic_vector;
     
-    -- convert from standard logic vector to opcode mnemonic
-    function slv2op (slv: in std_logic_vector) return opcode;
+    --convert from binary (std_logic_vector) to opcode
+    -- convert binary to integer and use it to index opcodes table
+    function slv2op (slv: in std_logic_vector) return opcodes;
     
-    -- convert from opcode mnemonic to standard logic vector
-    function op2slv (op: in opcode) return std_logic_vector;
-    
-    -- convert from funct mnemonic to standard logic vector
+    --convert from opcode to binary (std_logic_vector)
+    -- get the index of the given opcode and convert to binary
+    function op2slv (op: in opcodes) return std_logic_vector;
+
+    --convert from funct to binary
     function funct2slv (fnct: in funct) return std_logic_vector;
-    
-    -- convert from standard logic vector to funct mnemonic
+
+    --convert from binary to funct
     function slv2funct (slv: in std_logic_vector) return funct;
 end package pomegranate_inst_conf;
 
 
 --definition of package declarations
 package body pomegranate_inst_conf is
-    ------ VARIABLES ------
-    
-    --the array used to translate a standard logic vector to it's respective opcode mnemonic
-    type opcode_table is array (opcode) of std_logic_vector(op_w-1 downto 0);
-    constant trans_table: opcode_table := (
-        "0000",
-        "0001",
-        "0010",
-        "0011",
-        "0100",
-        "0101",
-        "0110",
-        "0111",
-        "1000",
-        "1001",
-        "1010",
-        "1011",
-        "1100",
-        "1101",
-        "1110",
-        "1111"
-    );
-    
-    type funct_table is array (funct) of std_logic_vector(4 downto 0);
-    constant functrans_table: funct_table := (
-        "00000",
-        "00001",
-        "00010",
-        "00011",
-        "00100",
-        "00101",
-        "00110",
-        "00111",
-        "01000",
-        "01001",
-        "01010",
-        "01011",
-        "01100",
-        "01101",
-        "01110",
-        "01111",
-        "10000",
-        "10001",
-        "10010",
-        "10011",
-        "10100"
-    );
-    
-    --operand MSB index table
-    type operand_table is array (operands) of natural;
-    -- register format
-    constant register_table: operand_table := (
-        11, 27, 23, 0, 7, 0
-    );
-    -- branch format
-    constant branch_table: operand_table := (
-        0, 27, 0, 19, 7, 11
-    );
-    -- load format
-    constant address_table: operand_table := (
-        11, 27, 23, 19, 7, 0
+--==========================================================--
+--VARIABLES                                                 --
+--==========================================================--
+
+    --operand width table
+    type t_operand_width is array (operands) of NATURAL;
+    constant operand_width: t_operand_width := (
+        Raddr_w, Raddr_w, Raddr_w, word_w, word_w
     );
 
-    -- register format check
-    function RFormatCheck (op: in opcode) return std_logic is
+    --operand MSB index table
+    -- a 2D array with a row for each instruction format
+    -- each row contains the index of the MSB of the operands in the corresponding format
+    type t_operand_table is array (formats, operands) of NATURAL;
+    constant operand_table: t_operand_table := (
+        (11, 27, 23, 0, 7), --register format
+        (0, 27, 0, 19, 7), --branch format
+        (11, 27, 23, 19, 7) --addressing format
+    );
+
+--==========================================================--
+--FUNCTIONS                                                 --
+--==========================================================--
+
+    ---- FORMAT CHECK FUNCTIONS ----
+    -- these functions determine which instructions are in which format
+    -- these functions must be synthesisable as they will be used in control unit logic
+
+    --register format check
+    function RFormatCheck (op: in opcodes) return std_logic is
     begin
         case op2slv(op) is
             --this format contains just instructions with an opcode of "0000"
-            when "0000" =>
-                --return '1' to specify we are in the register format
+            when "0000" => --replace the binary here
                 return '1';
             when others =>
-                --otherwise we return '0'
                 return '0';
         end case;
     end function RFormatCheck;
-    -- branch format check
-    function BFormatCheck (op: in opcode) return std_logic is
+
+    --branch format check
+    function BFormatCheck (op: in opcodes) return std_logic is
     begin
         case op2slv(op) is
             --opcodes in this format are as follows: NOP, CALL, RET, JMP, BRZ, BRN, BRP, BRC, BRV
             when "0001" | "0010" | "0011" | "0100" | "0101" | "0110" | "0111" | "1000" | "1001" =>
-                --return '1' to indicate we are in the branch format
                 return '1';
             when others =>
-                --otherwise return '0'
                 return '0';
         end case;
     end function BFormatCheck;
-    -- addressing format check
-    function AFormatCheck (op: in opcode) return std_logic is
+
+    --addressing format check
+    function AFormatCheck (op: in opcodes) return std_logic is
     begin
         case op2slv(op) is
             --opcodes in this format are as follows: LDR, LDW, LDI, STR, STW, STI
             when "1010" | "1011" | "1100" | "1101" | "1110" | "1111" =>
-                --return '1' to indicate we are in the load format
                 return '1';
             when others =>
-                --otherwise return '0'
                 return '0';
         end case;
     end function AFormatCheck;
-        
-        
-    ---- OPCODE FUNCTIONS ----
-     
-    -- address index return function
-    function AddressIndex (instruction_format: in formats := branch_format; operand: in operands := Rs) return NATURAL is
-    begin
-        --check which instruction format the opcode is in
-        -- then return the index of the MSB of the target operand
-        case instruction_format is
-            when register_format =>
-                return register_table(operand);
-            when branch_format =>
-                return branch_table(operand);
-            when addressing_format =>
-                return address_table(operand);
-        end case;
-        report "format not found!" severity error;
-        return word_w; --on a fail to fulfill conditions return the word width
-    end function AddressIndex;
     
-    -- convert from binary (std_logic_vector) to opcode
-    function slv2op (slv: in std_logic_vector) return opcode is
-        variable transop: opcode;
+    ---- HELPER FUNCTIONS, DO NOT EDIT THESE ----
+    --get operand function
+    -- gets just the operand from a given standard logic vector
+    -- as this forms connections between modules, there should be no decision logic here
+    function GetOperand (slv: in std_logic_vector; instruction_format: in formats; operand: in operands) return std_logic_vector is
+        variable operand_index: natural;
     begin
-        --this is the way that makes the most sense, however some synthesis tools don't support it.
-        --  the other method would be to use a case statement but it is harder to edit the instruction set.
-        for i in opcode loop
-            if slv = trans_table(i) then
-                transop := i;
-            end if;
-        end loop;
-        return transop;
+        operand_index := operand_table(instruction_format, operand);
+        return slv(operand_table(instruction_format, operand) downto operand_table(instruction_format, operand)-(operand_width(operand)-1));
+    end function GetOperand;
+
+    --convert from binary (std_logic_vector) to opcode
+    -- convert binary to integer and use it to index opcodes table
+    function slv2op (slv: in std_logic_vector) return opcodes is
+    begin
+        return opcodes'val(to_integer(unsigned(slv)));
     end function slv2op;
 
-    -- convert from opcode to binary (std_logic_vector)
-    function op2slv (op : in opcode) return std_logic_vector is
+    --convert from opcode to binary (std_logic_vector)
+    -- get the index of the given opcode and convert to binary
+    function op2slv (op : in opcodes) return std_logic_vector is
     begin
-        return trans_table(op);
+        return std_logic_vector(to_unsigned(opcodes'pos(op), op_w));
     end function op2slv;
-    
-    --convert from funct to binary (std_logic_vector)
+
+    --convert from funct to binary
     function funct2slv (fnct: in funct) return std_logic_vector is
     begin
-        return functrans_table(fnct);
+        return std_logic_vector(to_unsigned(funct'pos(fnct), 5));
     end function funct2slv;
-    
-    --convert from binary (std_logic_vector) to funct
+
+    --convert from binary to funct
     function slv2funct (slv: in std_logic_vector) return funct is
-        variable transfnct: funct;
     begin
-        for i in funct loop
-            if slv = functrans_table(i) then
-                transfnct := i;
-            end if;
-        end loop;
-        return transfnct;
+        return funct'val(to_integer(unsigned(slv)));
     end function slv2funct;
 end package body pomegranate_inst_conf;

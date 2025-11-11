@@ -7,7 +7,7 @@ use WORK.pomegranate_inst_conf.ALL;
 entity CU is
     Port (
         clk, arst: in std_logic;
-        op: in opcode;
+        op: in opcodes;
         fnct: in funct;
         flag_bus: inout std_logic_vector(4 downto 0);
         --control signals
@@ -219,6 +219,7 @@ begin
                         MEM_READ <= '1';
                         state_next <= MEM_WRITE_BACK;
                     when STR =>
+                        ADR_SEL <= "01";
                         DAT_SEL <= "01";
                         MEM_WRITE <= '1';
                         state_next <= FETCH;

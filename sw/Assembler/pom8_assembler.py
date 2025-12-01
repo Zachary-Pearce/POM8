@@ -16,7 +16,7 @@ TODO:
     Clean up assemble logic.
 """
 
-from pom8_tokeniser import *
+from pom8_token import *
 import sys
 import argparse
 
@@ -29,6 +29,7 @@ class Assembler():
         funct (dict): A dictionary of opcodes and their respective binary.
         formats (dict): A dictionary of instruction formats and expected token order.
         _asm_file_name (str): The name of the assembly code file.
+        _asm (list[str]): The assembly read from _asm_file_name.
         _token_lines (list[list[Token]]): The tokenised lines of code.
         _format_lines (list[str]): The format of each line.
         _machine_code (list[str]): The final machine code.
@@ -36,56 +37,53 @@ class Assembler():
     """
 
     opcode = {
-	    "NOP": "0001",
-	    "CALL": "0010",
-	    "RET": "0011",
-	    "JMP": "0100",
-	    "BRZ": "0101",
-	    "BRN": "0110",
-	    "BRP": "0111",
-	    "BRC": "1000",
-	    "BRV": "1001",
-	    "LDR": "1010",
-	    "LDW": "1011",
-	    "LDI": "1100",
-	    "STR": "1101",
-	    "STW": "1110",
-	    "STI": "1111"
+	    "NOP": "000001",
+	    "CALL": "000010",
+	    "RET": "000011",
+	    "JMP": "000100",
+	    "BRZ": "000101",
+	    "BRN": "000110",
+	    "BRP": "000111",
+	    "BRC": "001000",
+	    "BRV": "001001",
+	    "HLT": "001010",
+	    "ADDI": "001011",
+	    "SUBI": "001100",
+	    "ANDI": "001101",
+	    "ORI": "001110",
+	    "XORI": "001111",
+        "LDI": "010000",
+        "LDA": "010001",
+        "LDO": "010010",
+        "STA": "010011",
+        "PUSH": "010100",
+        "POP": "010101"
     }
 
     funct = {
-	    "ADD": "00000",
-	    "SUB": "00001",
-	    "AND": "00010",
-	    "OR": "00011",
-	    "NOT": "00100",
-	    "XOR": "00101",
-	    "ADDI": "00110",
-	    "SUBI": "00111",
-	    "ANDI": "01000",
-	    "ORI": "01001",
-	    "XORI": "01010",
-	    "LSL": "01011",
-	    "LSR": "01100",
-	    "ADDC": "01101",
-	    "SUBC": "01110",
-	    "PUSH": "01111",
-	    "POP": "10000",
-	    "SETC": "10001",
-	    "CLRC": "10010",
-	    "SETV": "10011",
-	    "CLRV": "10100"
+	    "ADD": "000000",
+	    "SUB": "000001",
+	    "AND": "000010",
+	    "OR": "000011",
+	    "NOT": "000100",
+	    "XOR": "000101",
+	    "LSL": "000110",
+	    "LSR": "000111",
+	    "ADDC": "001000",
+	    "SUBC": "001001",
+	    "SETC": "001010",
+	    "CLRC": "001011",
+	    "SETV": "001100",
+	    "CLRV": "001101",
+	    "MOV": "001110",
+	    "IJMP": "001111",
+	    "INC": "010000"
     }
 
     formats = {
-        "REGISTER": ["MNEMONIC", "REGISTER", "REGISTER", "REGISTER/DECIMAL"],
+        "REGISTER": ["MNEMONIC", "REGISTER", "REGISTER", "REGISTER"],
         "BRANCH": ["MNEMONIC", "HEXADECIMAL/MNEMONIC"],
-        "ADDRESSING_LOAD": ["MNEMONIC", "REGISTER", "HEXADECIMAL"],
-        "ADDRESSING_LOAD_IMMEDIATE": ["MNEMONIC", "REGISTER", "DECIMAL"],
-        "ADDRESSING_LOAD_INDEXED": ["MNEMONIC", "REGISTER", "REGISTER", "DECIMAL"],
-        "ADDRESSING_STORE": ["MNEMONIC", "REGISTER", "HEXADECIMAL"],
-        "ADDRESSING_STORE_IMMEDIATE": ["MNEMONIC", "HEXADECIMAL", "DECIMAL"],
-        "ADDRESSING_STORE_INDEXED": ["MNEMONIC", "REGISTER", "REGISTER", "DECIMAL"]
+        "IMMEDIATE": ["MNEMONIC", "REGISTER", "REGISTER/DECIMAL/HEXADECIMAL", "DECIMAL/HEXADECIMAL"]
     }
 
     def __init__(self, asm_file_name: str):
@@ -97,129 +95,117 @@ class Assembler():
         """
         self._asm_file_name = asm_file_name
 
+        self._asm = []
         self._token_lines = []
         self._format_lines = []
         self._machine_code = []
         self._labels = {}
 
-    def _get_labels(self):
+    def read_file(self):
         """
-        Get labels from the tokenised code, store them in a dictionary
-        and remove them.
-        
-        Raises:
-            SyntaxError: If there is a duplicate label or labels contain
-                non-letter charaters.
-        """
-        try:
-            for line in self._token_lines:
-                current_line = self._token_lines.index(line)
-                for token in line:
-                    if token.get_type() == "LABEL":
-                        #don't want the colon in the dictionary entry
-                        label = token.get_text()[:-1]
-                        if label in self._labels:
-                            raise SyntaxError(
-                                f"line {current_line + 1}: '{label}' label already exists!"
-                            )
+        A function to read an assembly text file and save the contents.
 
-                        for char in label:
-                            if ord(char.upper()) not in range(65,91):
-                                raise SyntaxError(
-                                    f"Line {current_line + 1}: Unexpected '{char}' in '{label}'.\n \
-                                        Labels must only contain letters"
-                                )
-                        #remove the label from the line
-                        line.remove(token)
-                        self._labels[label] = current_line
+        Parameters:
+            asm_file_name (str): the name of the text file to read from.
+        """
+        asm_file = open(self._asm_file_name, "r")
+        asm_file.seek(0)
+        asm = asm_file.read()
+        asm_file.close()
+
+        self._asm = asm
+
+    def tokenise(self):
+        """
+        tokenise the lines of assembly and store them in _token_lines
+        """
+        asm_lines = re.split("\n", self._asm)
+        try:
+            for line in asm_lines:
+                line_index = asm_lines.index(line)
+                tokens = []
+                if line != "": #ignore empty lines
+                    line_items = re.split(" |\t|, ", line)
+                    for item in line_items:
+                        if item != "": #prevent spaces from causing trouble
+                            token = Token(item)
+                            if token.get_type() != "COMMENT":
+                                if token.get_type() == "LABEL":
+                                    label = token.get_text()[:-1] #don't include the colon in label text
+                                    self._label_semantics(label, line_index)
+                                else: #we add labels to the symbol table rather than adding them to the token list
+                                    tokens.append(token)
+                            else:
+                                break #everything after a comment (;) is ignored
+                self._token_lines.append(tokens)
         except Exception as ex:
             print(ex)
             print("An error has occurred! Aborting...")
             sys.exit()
-    
-    def _address_format_check(self, token_mnemonic: str) -> bool:
+
+    def _label_semantics(self, label: str, line_index: int):
         """
-        Checks if a given mnemonic is in the address format.
+        Semantically analyse found labels, store them in a dictionary if valid.
 
         Parameters:
-            token_mnemonic (str): The mnemonic to check
-        
-        Returns:
-            match (bool): returns True if the mnemonic is in the format.
+            label (str): The label to analyse.
+            line_index (int): The index of the current line.
+
+        Raises:
+            SyntaxError: If there is a duplicate label or labels contain
+                non-letter charaters.
         """
-        if (token_mnemonic == "LDR"
-            or token_mnemonic == "LDW"
-            or token_mnemonic == "LDI"
-            or token_mnemonic == "STR"
-            or token_mnemonic == "STW"
-            or token_mnemonic == "STI"):
-            return True
+        if label in self._labels:
+            raise SyntaxError(
+                f"line {line_index+1}: '{label}' label already exists!"
+            )
         else:
-            return False
+            for char in label:
+                if ord(char.upper()) not in range(65,91):
+                    raise SyntaxError(
+                        f"Line {line_index+1}: Unexpected '{char}' in '{label}'.\n\tLabels must only contain letters"
+                    )
 
-    def _branch_format_check(self, token_mnemonic: str) -> bool:
-        """
-        Checks if a given mnemonic is in the branch format.
+        self._labels[label] = line_index
 
-        Parameters:
-            token_mnemonic (str): The mnemonic to check
-        
-        Returns:
-            match (bool): returns True if the mnemonic is in the format.
-        """
-        if (token_mnemonic == "NOP"
-            or token_mnemonic == "CALL"
-            or token_mnemonic == "RET"
-            or token_mnemonic == "JMP"
-            or token_mnemonic == "BRZ"
-            or token_mnemonic == "BRN"
-            or token_mnemonic == "BRP"
-            or token_mnemonic == "BRC"
-            or token_mnemonic == "BRV"):
-            return True
-        else:
-            return False
-
-    def _get_line_format(self, line: list[Token]) -> str:
+    def _get_line_format(self, opcode_mnemonic: str) -> str:
         """
         Gets the instruction format relating to a line of assembly.
 
         Parameters:
-            line (list[Token]): The token line to identify.
+            opcode_mnemonic (str): The opcode of the line.
         
         Returns:
             format (str): The identified format of the line, can be:
                 REGISTER,
                 BRANCH,
-                ADDRESSING_LOAD,
-                ADDRESSING_LOAD_IMMEDIATE,
-                ADDRESSING_LOAD_INDEXED,
-                ADDRESSING_STORE,
-                ADDRESSING_STORE_IMMEDIATE,
-                ADDRESSING_STORE_INDEXED
+                IMMEDIATE
         """
         _format = ""
-        mnemonic = line[0].get_text().upper()
-
-        if mnemonic not in self.opcode:
+        if opcode_mnemonic not in self.opcode:
             _format = "REGISTER"
-        elif self._branch_format_check(mnemonic):
+        elif (opcode_mnemonic == "NOP"
+              or opcode_mnemonic == "CALL"
+              or opcode_mnemonic == "RET"
+              or opcode_mnemonic == "JMP"
+              or opcode_mnemonic == "BRZ"
+              or opcode_mnemonic == "BRN"
+              or opcode_mnemonic == "BRP"
+              or opcode_mnemonic == "BRC"
+              or opcode_mnemonic == "BRV"):
             _format = "BRANCH"
-        elif self._address_format_check(mnemonic):
-            if mnemonic.startswith("L"):
-                if mnemonic.endswith("W"):
-                    _format = "ADDRESSING_LOAD_IMMEDIATE"
-                elif mnemonic.endswith("I"):
-                    _format = "ADDRESSING_LOAD_INDEXED"
-                else:
-                    _format = "ADDRESSING_LOAD"
-            else:
-                if mnemonic.endswith("W"):
-                    _format = "ADDRESSING_STORE_IMMEDIATE"
-                elif mnemonic.endswith("I"):
-                    _format = "ADDRESSING_STORE_INDEXED"
-                else:
-                    _format = "ADDRESSING_STORE"
+        elif (opcode_mnemonic == "ADDI"
+              or opcode_mnemonic == "SUBI"
+              or opcode_mnemonic == "ANDI"
+              or opcode_mnemonic == "ORI"
+              or opcode_mnemonic == "XORI"
+              or opcode_mnemonic == "LDI"
+              or opcode_mnemonic == "LDA"
+              or opcode_mnemonic == "LDO"
+              or opcode_mnemonic == "STA"
+              or opcode_mnemonic == "PUSH"
+              or opcode_mnemonic == "POP"):
+            _format = "IMMEDIATE"
         
         return _format
     
@@ -246,13 +232,11 @@ class Assembler():
                         )
             case "MNEMONIC":
                 mnemonic = token.get_text()
-                if (mnemonic not in self.opcode
-                and mnemonic not in self.funct
-                and mnemonic not in self._labels):
+                if mnemonic not in self._labels:
                     raise SyntaxError (
                         f"Line {line_num}: '{mnemonic}' is not a valid {token_type}!"
                     )
-    
+
     def _check_overflow(self, token: Token, line_num: int):
         """
         Check that all inputs are within range.
@@ -271,82 +255,67 @@ class Assembler():
                 reg_num = token.get_text()[1:]
                 if int(reg_num, 10) > 15:
                     raise OverflowError(
-                        f"Line {line_num}: {token_type} index '{reg_num}' out of range, \
-                            expected range 0-15"
+                        f"Line {line_num}: {token_type} index '{reg_num}' out of range, expected range 0-15"
                     )
             case "HEXADECIMAL":
                 _hex = token.get_text()[2:]
-                if len(_hex) > 4:
+                if len(_hex) > 3 and (not _hex[0].isdigit() and int(_hex[0], 10) > 3):
                     raise OverflowError(
-                        f"Line {line_num}: {token_type} '{_hex}' out of range, \
-                            expected range 0x0000-0xFFFF"
+                        f"Line {line_num}: {token_type} '{_hex}' out of range, expected range 0x000-0x3FF"
                     )
             case "DECIMAL":
                 dec_num = token.get_text()
                 if int(dec_num, 10) > 255:
                     raise OverflowError(
-                        f"Line {line_num}: {token_type} word '{dec_num}' out of range, \
-                            expected range 0-255"
+                        f"Line {line_num}: {token_type} word '{dec_num}' out of range, expected range 0-255"
                     )
 
-    # TODO: Add support for negative decimals.
-    def syntax_analysis(self):
+    def first_pass(self):
         """
-        Tokenise and perform syntax analysis on assembly code
-        
-        Raises:
-            SyntaxError: If a line is not in the correct format.
-        """
-        self._token_lines = tokenise_asm(self._asm_file_name)
-        self._get_labels()
+        The first pass over the tokenised stream, performing the following:
+            Symbol table creation
+            Syntax analysis
+            Semantic analysis
 
+        Raises:
+        """
         try:
             for line in self._token_lines:
-                current_line = self._token_lines.index(line)
-
-                #check the tokens
-                for token in line:
-                    self._check_symbols(token, current_line + 1)
-                    
-                    self._check_overflow(token, current_line + 1)
-
-                #then check the line is in the correct format
-                _format = self._get_line_format(line)
-                self._format_lines.append(_format) #save the format for assembly later
-                expected_tokens = self.formats[_format]
-                i = 0
-                while i < len(line):
-                    if line[i].get_type() not in expected_tokens[i]:
-                        raise SyntaxError(
-                            f"Line {current_line + 1}: Unexpected token '{line[i].get_type()}', \
-                                expected '{expected_tokens[i]}'"
-                        )
-                    i += 1
+                line_index = self._token_lines.index(line)
+                #the first element will be an opcode mnemonic
+                opcode_mnemonic = line[0].get_text()
+                if (opcode_mnemonic in self.opcode
+                    or opcode_mnemonic in self.funct):
+                    #get the format of the line
+                    format = self._get_line_format(opcode_mnemonic)
+                    self._format_lines.append(format)
+                else:
+                    raise SyntaxError (
+                        f"Line {line_index+1}: '{opcode_mnemonic}' is not a valid MNEMONIC!"
+                    )
+            
+                #now we can loop through the remaining tokens on the line
+                # we don't need to worry about opcodes that require no arguments
+                if len(line) > 1:
+                    expected_tokens = self.formats[self._format_lines[line_index]]
+                    for i in range(1, len(line)): #skip first token as we have already checked this
+                        if line[i].get_type() in expected_tokens[i]:
+                            self._check_symbols(line[i], line_index+1)
+                            self._check_overflow(line[i], line_index+1)
+                        else:
+                            raise SyntaxError(
+                                f"Line {line_index+1}: Unexpected token '{line[i].get_type()}', expected '{expected_tokens[i]}'"
+                            )
         except Exception as ex:
             print(ex)
             print("An error has occurred! Aborting...")
             sys.exit()
 
-    def _convert_register(self, token: Token) -> str:
-        """
-        Converts a register token into machine code.
-
-        Parameters:
-            token (Token): The register token to convert.
-
-        Returns:
-            machine_code (str): The converted binary string.
-        """
-        machine_code = ""
-
-        reg_index = int(token.get_text()[1:], 10)
-        machine_code = f"{reg_index:04b}"
-
-        return machine_code
-
     # TODO: clean up assemble logic, very messy.
-    def assemble(self):
-        """Assemble tokenised and syntax checked assembly code."""
+    def second_pass(self):
+        """
+        Assemble tokenised and syntax checked assembly code.
+        """
         i = 0
         while i < len(self._token_lines):
             machine_code_line = ""
@@ -354,133 +323,84 @@ class Assembler():
             mnemonic = line[0].get_text().upper()
 
             if self._format_lines[i] == "REGISTER":
-                immediate = 0
+                Rd = 0
                 Rs = 0
                 Rt = 0
-                Rd = 0
-                funct = self.funct[mnemonic]
-
-                #convert the registers
-                reg_num = 0
-                if mnemonic.endswith("I"):
-                    reg_num = 2
-                    immediate = int(line[3].get_text(), 10)
-                else:
-                    reg_num = len(line) - 1
+                Funct = self.funct[mnemonic]
                 
-                match reg_num:
-                    case 1:
-                        if mnemonic == "PUSH":
-                            Rs = int(line[1].get_text()[1:], 10)
-                        else:
-                            Rd = int(line[1].get_text()[1:], 10)
-                    case 2:
-                        Rs = int(line[1].get_text()[1:], 10)
-                        Rd = int(line[2].get_text()[1:], 10)
-                    case 3:
-                        Rs = int(line[1].get_text()[1:], 10)
-                        Rt = int(line[2].get_text()[1:], 10)
-                        Rd = int(line[3].get_text()[1:], 10)
+                # convert registers
+                if mnemonic == "IJMP":
+                    #IJMP is the only instruction that does not follow the Rd, Rs, Rt order
+                    Rs = int(line[1].get_text()[1:], 10)
+                    Rt = int(line[2].get_text()[1:], 10)
+                elif (mnemonic != "SETC"
+                      or mnemonic != "CLRC"
+                      or mnemonic != "SETV"
+                      or mnemonic != "CLRV"):
+                    #all other instructions with inputs follow the order
+                    registers = [0, 0, 0]
+                    for x in range(1,len(line)):
+                        registers[x-1] = int(line[x].get_text()[1:], 10)
+                    
+                    Rd = registers[0]
+                    Rs = registers[1]
+                    Rt = registers[2]
 
-                machine_code_line = ("0000"
+                machine_code_line = ("000000"
+                                     + f"{Rd:04b}"
                                      + f"{Rs:04b}"
                                      + f"{Rt:04b}"
-                                     + funct
-                                     + "000"
-                                     + f"{Rd:04b}"
-                                     + f"{immediate:08b}")
+                                     + Funct)
             elif self._format_lines[i] == "BRANCH":
-                opcode = self.opcode[line[0].get_text()]
+                opcode = self.opcode[mnemonic]
                 
                 #is it a label or a hex input
-                immediate = "00000000"
+                immediate = "0000000000000000"
                 if len(line) > 1:
                     if line[1].get_text() in self._labels:
-                        immediate = f"{self._labels[line[1].get_text()]:08b}"
+                        immediate = f"{self._labels[line[1].get_text()]:016b}"
                     else:
                         _hex = line[1].get_text()[2:]
                         decimal = int(_hex, 16)
-                        immediate = f"{decimal:08b}"
+                        immediate = f"{decimal:016b}"
                 
                 machine_code_line = (opcode
-                                     + "00000000"
-                                     + "000000000000"
+                                     + "00"
                                      + immediate)
-            elif self._format_lines[i] == "ADDRESSING_LOAD":
-                opcode = self.opcode[line[0].get_text()]
-                register_num = int(line[1].get_text()[1:], 10)
-                _hex = line[2].get_text()[2:]
-                decimal = int(_hex, 16)
-                address = f"{decimal:016b}"
-                immediate_higher = address[:8]
-                immediate_lower = address[-8:]
+            elif self._format_lines[i] == "IMMEDIATE":
+                opcode = self.opcode[mnemonic]
+                immediate = "0000000000"
+                Rd = 0
+                Rs = 0
+
+                #STA and PUSH do not follow the Rd, Rs, Rt order
+                if (mnemonic == "STA"
+                    or mnemonic == "PUSH"):
+                    Rs = int(line[1].get_text()[1:], 10)
+                else:
+                    #all other instructions follow the order
+                    registers = [0, 0]
+                    for x in range(1,len(line)-1):
+                        registers[x-1] = int(line[x].get_text()[1:], 10)
+                    
+                    Rd = registers[0]
+                    Rs = registers[0]
+
+                #immediate comes after the registers
+                #so use x+1 to index where x is the index of the last register
+                if x+1 < len(line): #some instructions do not contain immediates
+                    if line[x+1].get_type() == "HEXADECIMAL":
+                        _hex = line[x+1].get_text()[2:]
+                        decimal = int(_hex, 16)
+                    else: #if the input is a decimal
+                        decimal = int(line[x+1].get_text(), 10)
+                    
+                    immediate = f"{decimal:010b}"
+
                 machine_code_line = (opcode
-                                     + "00000000"
-                                     + immediate_higher
-                                     + f"{register_num:04b}"
-                                     + immediate_lower)
-            elif self._format_lines[i] == "ADDRESSING_LOAD_IMMEDIATE":
-                opcode = self.opcode[line[0].get_text()]
-                register_num = int(line[1].get_text()[1:], 10)
-                immediate = int(line[2].get_text(), 10)
-                machine_code_line = (opcode
-                                     + "00000000"
-                                     + "00000000"
-                                     + f"{register_num:04b}"
-                                     + f"{immediate:08b}")
-            elif self._format_lines[i] == "ADDRESSING_LOAD_INDEXED":
-                opcode = self.opcode[line[0].get_text()]
-                registers = []
-                for n in range(2):
-                    register_num = int(line[1+n].get_text()[1:], 10)
-                    registers.append(f"{register_num:04b}")
-                immediate = int(line[3].get_text(), 10)
-                machine_code_line = (opcode
-                                     + registers[0]
-                                     + "0000"
-                                     + "00000000"
-                                     + registers[1]
-                                     + f"{immediate:08b}")
-            elif self._format_lines[i] == "ADDRESSING_STORE":
-                opcode = self.opcode[line[0].get_text()]
-                register_num = int(line[1].get_text()[1:], 10)
-                _hex = line[2].get_text()[2:]
-                decimal = int(_hex, 16)
-                address = f"{decimal:016b}"
-                immediate_higher = address[:8]
-                immediate_lower = address[-8:]
-                machine_code_line = (opcode
-                                     + f"{register_num:04b}"
-                                     + "0000"
-                                     + immediate_higher
-                                     + "0000"
-                                     + immediate_lower)
-            elif self._format_lines[i] == "ADDRESSING_STORE_IMMEDIATE":
-                opcode = self.opcode[line[0].get_text()]
-                _hex = line[1].get_text()[2:]
-                decimal = int(_hex, 16)
-                address = f"{decimal:016b}"
-                address_higher = address[:8]
-                address_lower = address[-8:]
-                immediate = int(line[2].get_text(), 10)
-                machine_code_line = (opcode
-                                     + address_higher
-                                     + address_lower
-                                     + "0000"
-                                     + f"{immediate:08b}")
-            elif self._format_lines[i] == "ADDRESSING_STORE_INDEXED":
-                opcode = self.opcode[line[0].get_text()]
-                registers = []
-                for n in range(2):
-                    register_num = int(line[1+n].get_text()[1:], 10)
-                    registers.append(f"{register_num:04b}")
-                immediate = int(line[3].get_text(), 10)
-                machine_code_line = (opcode
-                                     + registers[0]
-                                     + registers[1]
-                                     + "00000000"
-                                     + "0000"
-                                     + f"{immediate:08b}")
+                                     + f"{Rd:04b}"
+                                     + f"{Rs:04b}"
+                                     + immediate)
 
             self._machine_code.append(machine_code_line)
             i += 1
@@ -523,8 +443,10 @@ if __name__ == "__main__":
     #convert the input file
     asm_file_name = args.Input
     assembler = Assembler(asm_file_name)
-    assembler.syntax_analysis()
-    assembler.assemble()
+    assembler.read_file()
+    assembler.tokenise()
+    assembler.first_pass()
+    assembler.second_pass()
 
     machine_code = assembler.get_machine_code()
     if args.Output:

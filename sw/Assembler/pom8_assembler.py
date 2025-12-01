@@ -278,6 +278,7 @@ class Assembler():
             Semantic analysis
 
         Raises:
+            SyntaxError: If there is an invalid symbol or unexpected token.
         """
         try:
             for line in self._token_lines:

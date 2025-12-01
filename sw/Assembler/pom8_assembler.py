@@ -11,9 +11,8 @@ Classes:
     Assembler: A wrapper class for the POM8 assembler
 
 TODO:
-    Might want to further modularise this and move all syntax analysis to another file.
     Add support for negative decimals.
-    Clean up assemble logic.
+    Add support for binary operands.
 """
 
 from pom8_token import *
@@ -312,7 +311,6 @@ class Assembler():
             print("An error has occurred! Aborting...")
             sys.exit()
 
-    # TODO: clean up assemble logic, very messy.
     def second_pass(self):
         """
         Assemble tokenised and syntax checked assembly code.

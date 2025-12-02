@@ -9,9 +9,6 @@ License: GPL-3.0
 
 Classes:
     Assembler: A wrapper class for the POM8 assembler
-
-TODO:
-    Add support for negative decimals.
 """
 
 from pom8_token import *
@@ -245,13 +242,18 @@ class Assembler():
                     )
             case TokenType.HEXADECIMAL:
                 _hex = token.text[2:]
-                if len(_hex) > 3 and (not _hex[0].isdigit() and int(_hex[0], 10) > 3):
+                if len(_hex) > 3 or not _hex[0].isdigit() or int(_hex[0], 10) > 3:
                     raise OverflowError(
                         f"Line {line_num}: {token_type.name} '{_hex}' out of range, expected range 0x000-0x3FF"
                     )
             case TokenType.DECIMAL:
                 dec_num = token.text
-                if int(dec_num, 10) > 255:
+                if dec_num.startswith("-"):
+                    if int(dec_num, 10) < -128:
+                        raise OverflowError(
+                            f"Line {line_num}: {token_type.name} word '{dec_num}' out of range, expected range -128-127"
+                        )
+                elif int(dec_num, 10) > 255:
                     raise OverflowError(
                         f"Line {line_num}: {token_type.name} word '{dec_num}' out of range, expected range 0-255"
                     )
@@ -390,7 +392,10 @@ class Assembler():
                     else: #if the input is a decimal
                         decimal = int(line[x+1].text, 10)
                     
-                    immediate = f"{decimal:010b}"
+                    if line[x+1].text.startswith("-"):
+                        immediate = "00" + bin((1 << 8) + decimal)[2:]
+                    else:
+                        immediate = f"{decimal:010b}"
 
                 machine_code_line = (opcode
                                      + f"{Rd:04b}"

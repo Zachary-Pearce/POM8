@@ -109,4 +109,4 @@ class Token():
     
     def __repr__(self) -> str:
         """String representation of the Token object."""
-        return f"Token(text='{self._text}', type={self._type})"
+        return f"Token(text='{self._text}', type={self._type}, line_num={self._line_num})"

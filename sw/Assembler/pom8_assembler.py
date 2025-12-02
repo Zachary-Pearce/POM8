@@ -16,6 +16,7 @@ TODO:
 """
 
 from pom8_token import *
+import re
 import sys
 import argparse
 
@@ -127,10 +128,10 @@ class Assembler():
                     line_items = re.split(" |\t|, ", line)
                     for item in line_items:
                         if item != "": #prevent spaces from causing trouble
-                            token = Token(item)
-                            if token.get_type() != "COMMENT":
-                                if token.get_type() == "LABEL":
-                                    label = token.get_text()[:-1] #don't include the colon in label text
+                            token = Token(item, line_index+1)
+                            if token.type != TokenType.COMMENT:
+                                if token.type == TokenType.LABEL:
+                                    label = token.text[:-1] #don't include the colon in label text
                                     self._label_semantics(label, line_index)
                                 else: #we add labels to the symbol table rather than adding them to the token list
                                     tokens.append(token)
@@ -219,21 +220,14 @@ class Assembler():
         Raises:
             SyntaxError: If there are unexpected symbols.
         """
-        token_type = token.get_type()
+        token_type = token.type
 
         match token_type:
-            case "HEXADECIMAL":
-                _hex = token.get_text()[2:]
-                for char in _hex:
-                    if char.upper() not in "ABCDEF" and not char.isdigit():
-                        raise SyntaxError(
-                            f"Line {line_num}: '{_hex}' is not a valid {token_type}, Unexpected '{char}'."
-                        )
-            case "MNEMONIC":
-                mnemonic = token.get_text()
+            case TokenType.MNEMONIC:
+                mnemonic = token.text
                 if mnemonic not in self._labels:
                     raise SyntaxError (
-                        f"Line {line_num}: '{mnemonic}' is not a valid {token_type}!"
+                        f"Line {line_num}: '{mnemonic}' is not a valid {token_type.name}!"
                     )
 
     def _check_overflow(self, token: Token, line_num: int):
@@ -247,26 +241,26 @@ class Assembler():
         Raises:
             OverflowError: If any input is out of range.
         """
-        token_type = token.get_type()
+        token_type = token.type
 
         match token_type:
-            case "REGISTER":
-                reg_num = token.get_text()[1:]
+            case TokenType.REGISTER:
+                reg_num = token.text[1:]
                 if int(reg_num, 10) > 15:
                     raise OverflowError(
-                        f"Line {line_num}: {token_type} index '{reg_num}' out of range, expected range 0-15"
+                        f"Line {line_num}: {token_type.name} index '{reg_num}' out of range, expected range 0-15"
                     )
-            case "HEXADECIMAL":
-                _hex = token.get_text()[2:]
+            case TokenType.HEXADECIMAL:
+                _hex = token.text[2:]
                 if len(_hex) > 3 and (not _hex[0].isdigit() and int(_hex[0], 10) > 3):
                     raise OverflowError(
-                        f"Line {line_num}: {token_type} '{_hex}' out of range, expected range 0x000-0x3FF"
+                        f"Line {line_num}: {token_type.name} '{_hex}' out of range, expected range 0x000-0x3FF"
                     )
-            case "DECIMAL":
-                dec_num = token.get_text()
+            case TokenType.DECIMAL:
+                dec_num = token.text
                 if int(dec_num, 10) > 255:
                     raise OverflowError(
-                        f"Line {line_num}: {token_type} word '{dec_num}' out of range, expected range 0-255"
+                        f"Line {line_num}: {token_type.name} word '{dec_num}' out of range, expected range 0-255"
                     )
 
     def first_pass(self):
@@ -283,7 +277,7 @@ class Assembler():
             for line in self._token_lines:
                 line_index = self._token_lines.index(line)
                 #the first element will be an opcode mnemonic
-                opcode_mnemonic = line[0].get_text()
+                opcode_mnemonic = line[0].text
                 if (opcode_mnemonic in self.opcode
                     or opcode_mnemonic in self.funct):
                     #get the format of the line
@@ -299,12 +293,12 @@ class Assembler():
                 if len(line) > 1:
                     expected_tokens = self.formats[self._format_lines[line_index]]
                     for i in range(1, len(line)): #skip first token as we have already checked this
-                        if line[i].get_type() in expected_tokens[i]:
+                        if line[i].type.name in expected_tokens[i]:
                             self._check_symbols(line[i], line_index+1)
                             self._check_overflow(line[i], line_index+1)
                         else:
                             raise SyntaxError(
-                                f"Line {line_index+1}: Unexpected token '{line[i].get_type()}', expected '{expected_tokens[i]}'"
+                                f"Line {line_index+1}: Unexpected token '{line[i].type.name}', expected '{expected_tokens[i]}'"
                             )
         except Exception as ex:
             print(ex)
@@ -318,8 +312,8 @@ class Assembler():
         i = 0
         while i < len(self._token_lines):
             machine_code_line = ""
-            line = self._token_lines[i]
-            mnemonic = line[0].get_text().upper()
+            line: list[Token] = self._token_lines[i]
+            mnemonic = line[0].text.upper()
 
             if self._format_lines[i] == "REGISTER":
                 Rd = 0
@@ -330,8 +324,8 @@ class Assembler():
                 # convert registers
                 if mnemonic == "IJMP":
                     #IJMP is the only instruction that does not follow the Rd, Rs, Rt order
-                    Rs = int(line[1].get_text()[1:], 10)
-                    Rt = int(line[2].get_text()[1:], 10)
+                    Rs = int(line[1].text[1:], 10)
+                    Rt = int(line[2].text[1:], 10)
                 elif (mnemonic != "SETC"
                       or mnemonic != "CLRC"
                       or mnemonic != "SETV"
@@ -339,7 +333,7 @@ class Assembler():
                     #all other instructions with inputs follow the order
                     registers = [0, 0, 0]
                     for x in range(1,len(line)):
-                        registers[x-1] = int(line[x].get_text()[1:], 10)
+                        registers[x-1] = int(line[x].text[1:], 10)
                     
                     Rd = registers[0]
                     Rs = registers[1]
@@ -356,10 +350,10 @@ class Assembler():
                 #is it a label or a hex input
                 immediate = "0000000000000000"
                 if len(line) > 1:
-                    if line[1].get_text() in self._labels:
-                        immediate = f"{self._labels[line[1].get_text()]:016b}"
+                    if line[1].text in self._labels:
+                        immediate = f"{self._labels[line[1].text]:016b}"
                     else:
-                        _hex = line[1].get_text()[2:]
+                        _hex = line[1].text[2:]
                         decimal = int(_hex, 16)
                         immediate = f"{decimal:016b}"
                 
@@ -375,12 +369,12 @@ class Assembler():
                 #STA and PUSH do not follow the Rd, Rs, Rt order
                 if (mnemonic == "STA"
                     or mnemonic == "PUSH"):
-                    Rs = int(line[1].get_text()[1:], 10)
+                    Rs = int(line[1].text[1:], 10)
                 else:
                     #all other instructions follow the order
                     registers = [0, 0]
                     for x in range(1,len(line)-1):
-                        registers[x-1] = int(line[x].get_text()[1:], 10)
+                        registers[x-1] = int(line[x].text[1:], 10)
                     
                     Rd = registers[0]
                     Rs = registers[0]
@@ -388,11 +382,11 @@ class Assembler():
                 #immediate comes after the registers
                 #so use x+1 to index where x is the index of the last register
                 if x+1 < len(line): #some instructions do not contain immediates
-                    if line[x+1].get_type() == "HEXADECIMAL":
-                        _hex = line[x+1].get_text()[2:]
+                    if line[x+1].type == TokenType.HEXADECIMAL:
+                        _hex = line[x+1].text[2:]
                         decimal = int(_hex, 16)
                     else: #if the input is a decimal
-                        decimal = int(line[x+1].get_text(), 10)
+                        decimal = int(line[x+1].text, 10)
                     
                     immediate = f"{decimal:010b}"
 

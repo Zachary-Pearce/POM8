@@ -1,4 +1,4 @@
-            LDI r0, 240
+            LDI r0, 0b11110000
             STA r0, 0x202   ; store 11110000 in the GPIO DDR
 start:      LDA r0, 0x200   ; get input
             ADDI r1, r0, 5  ; add 5 to the input

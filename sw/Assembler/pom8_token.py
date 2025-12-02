@@ -29,6 +29,7 @@ class TokenType(Enum):
         COMMENT: A comment token.
         HEXADECIMAL: A hexadecimal number token.
         DECIMAL: A decimal number token.
+        BINARY: A binary string token.
     """
     LABEL = 1
     MNEMONIC = 2
@@ -36,12 +37,14 @@ class TokenType(Enum):
     COMMENT = 4
     HEXADECIMAL = 5
     DECIMAL = 6
+    BINARY = 7
 
 #Precompiled regex patterns for performance
 # .upper() or .lower() can be slower, so we use re.IGNORECASE
 _REGISTER_RE = re.compile(r"^r\d+$", re.IGNORECASE)
 _HEX_RE = re.compile(r"^0x[0-9A-F]+$", re.IGNORECASE)
 _DECIMAL_RE = re.compile(r"^[-]?\d+$")
+_BIANRY_RE = re.compile(r"^0b[0-1]+$", re.IGNORECASE)
 _LABEL_RE = re.compile(r"^[a-z][a-z0-9]*:$", re.IGNORECASE)
 _MNEMONIC_RE = re.compile(r"^[a-z][a-z0-9]+$", re.IGNORECASE)
 
@@ -88,6 +91,9 @@ class Token():
         #decimal numbers
         elif _DECIMAL_RE.fullmatch(self._text):
             return TokenType.DECIMAL
+        #binary strings start with 0b followed by 0 or 1
+        elif _BIANRY_RE.fullmatch(self._text):
+            return TokenType.BINARY
         #labels end with a colon,
         # and start with a letter followed by letters/numbers
         elif _LABEL_RE.fullmatch(self._text):

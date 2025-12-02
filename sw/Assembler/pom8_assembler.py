@@ -12,7 +12,6 @@ Classes:
 
 TODO:
     Add support for negative decimals.
-    Add support for binary operands.
 """
 
 from pom8_token import *
@@ -83,7 +82,7 @@ class Assembler():
     formats = {
         "REGISTER": ["MNEMONIC", "REGISTER", "REGISTER", "REGISTER"],
         "BRANCH": ["MNEMONIC", "HEXADECIMAL/MNEMONIC"],
-        "IMMEDIATE": ["MNEMONIC", "REGISTER", "REGISTER/DECIMAL/HEXADECIMAL", "DECIMAL/HEXADECIMAL"]
+        "IMMEDIATE": ["MNEMONIC", "REGISTER", "REGISTER/DECIMAL/HEXADECIMAL/BINARY", "DECIMAL/HEXADECIMAL/BINARY"]
     }
 
     def __init__(self, asm_file_name: str):
@@ -159,12 +158,6 @@ class Assembler():
             raise SyntaxError(
                 f"line {line_index+1}: '{label}' label already exists!"
             )
-        else:
-            for char in label:
-                if ord(char.upper()) not in range(65,91):
-                    raise SyntaxError(
-                        f"Line {line_index+1}: Unexpected '{char}' in '{label}'.\n\tLabels must only contain letters"
-                    )
 
         self._labels[label] = line_index
 
@@ -261,6 +254,12 @@ class Assembler():
                 if int(dec_num, 10) > 255:
                     raise OverflowError(
                         f"Line {line_num}: {token_type.name} word '{dec_num}' out of range, expected range 0-255"
+                    )
+            case TokenType.BINARY:
+                _bin = token.text[2:]
+                if len(_bin) > 8:
+                    raise OverflowError(
+                        f"Line {line_num}: {token_type.name} word '{_bin}' out of range, expected 8-bit number"
                     )
 
     def first_pass(self):
@@ -385,6 +384,9 @@ class Assembler():
                     if line[x+1].type == TokenType.HEXADECIMAL:
                         _hex = line[x+1].text[2:]
                         decimal = int(_hex, 16)
+                    elif line[x+1].type == TokenType.BINARY:
+                        _bin = line[x+1].text[2:]
+                        decimal = int(_bin, 2)
                     else: #if the input is a decimal
                         decimal = int(line[x+1].text, 10)
                     

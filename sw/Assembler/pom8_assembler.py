@@ -1,4 +1,5 @@
-"""pom8_assembler.py
+"""
+pom8_assembler.py
 
 This module provides the operations required to perform syntax analysis and
 assemble any POM8 mnemonics.
@@ -139,27 +140,29 @@ def tokenise(program: Program) -> None:
     """
     asm = read_file(program.file_name)
     asm_lines = re.split("\n", asm)
-    try:
-        for line in asm_lines:
-            line_index = asm_lines.index(line)
-            program.lines.append(Line(line_index))
-            if line != "": #ignore empty lines
-                line_items = re.split(" |\t|, ", line)
-                for item in line_items:
-                    if item != "": #prevent spaces from causing trouble
-                        token = Token(item, line_index+1)
-                        if token.type != TokenType.COMMENT:
-                            if token.type == TokenType.LABEL:
-                                label = token.text[:-1] #don't include the colon in label text
-                                _label_semantics(program, label, line_index)
-                            else: #we add labels to the symbol table rather than adding them to the token list
-                                program.lines[line_index].tokens.append(token)
-                        else:
-                            break #everything after a comment (;) is ignored
-    except Exception as ex:
-        print(ex)
-        print("An error has occurred! Aborting...")
-        sys.exit()
+    line_index = 0
+    for line in asm_lines:
+        if not line.strip():
+            continue #skip empty lines
+
+        program_line : Line = Line(line_index)
+        # split line into items based on commas and/or whitespace
+        # we shouldn't have to check for whitespaces after this regex
+        line_items = re.split(r"[,][ ]*|[ \t]+", line.strip())
+        for item in line_items:
+            token = Token(item, line_index+1)
+            if token.type == TokenType.COMMENT:
+                break #everything after a comment (;) is ignored
+            elif token.type == TokenType.LABEL:
+                label = token.text[:-1] #strip colon from label text
+                _label_semantics(program, label, line_index)
+            else:
+                program_line.tokens.append(token)
+
+        #ignore lines that only contain comments
+        if len(program_line.tokens) > 0:
+            program.lines.append(program_line)
+            line_index += 1
 
 def _label_semantics(program: Program, label: str, line_index: int) -> None:
     """
@@ -207,7 +210,8 @@ def _get_line_format(program: Program, line_index: int) -> None:
             or opcode_mnemonic == "BRN"
             or opcode_mnemonic == "BRP"
             or opcode_mnemonic == "BRC"
-            or opcode_mnemonic == "BRV"):
+            or opcode_mnemonic == "BRV"
+            or opcode_mnemonic == "HLT"):
         line.format = Format.BRANCH_FORMAT
     elif (opcode_mnemonic == "ADDI"
             or opcode_mnemonic == "SUBI"
@@ -301,29 +305,24 @@ def first_pass(program: Program) -> None:
     Raises:
         SyntaxError: If there is an unexpected token.
     """
-    try:
-        for line in program.lines:
-            line_index = program.lines.index(line)
-            #get the format of the line
-            _get_line_format(program, line_index)
-        
-            #now we can loop through the remaining tokens on the line
-            # we don't need to worry about opcodes that require no arguments
-            tokens = line.tokens
-            if len(tokens) > 1:
-                expected_tokens = FORMATS[line.format]
-                for i in range(1, len(tokens)): #skip first token as we have already checked this
-                    if tokens[i].type.name in expected_tokens[i]:
-                        _check_symbols(program, tokens[i], line_index+1)
-                        _check_overflow(tokens[i], line_index+1)
-                    else:
-                        raise SyntaxError(
-                            f"Line {line_index+1}: Unexpected token '{tokens[i].type}', expected '{expected_tokens[i]}'"
-                        )
-    except Exception as ex:
-       print(ex)
-       print("An error has occurred! Aborting...")
-       sys.exit()
+    for line in program.lines:
+        line_index = program.lines.index(line)
+        #get the format of the line
+        _get_line_format(program, line_index)
+    
+        #now we can loop through the remaining tokens on the line
+        # we don't need to worry about opcodes that require no arguments
+        tokens = line.tokens
+        if len(tokens) > 1:
+            expected_tokens = FORMATS[line.format]
+            for i in range(1, len(tokens)): #skip first token as we have already checked this
+                if tokens[i].type.name in expected_tokens[i]:
+                    _check_symbols(program, tokens[i], line_index+1)
+                    _check_overflow(tokens[i], line_index+1)
+                else:
+                    raise SyntaxError(
+                        f"Line {line_index+1}: Unexpected token '{tokens[i].type}', expected '{expected_tokens[i]}'"
+                    )
 
 def second_pass(program: Program) -> None:
     """
@@ -435,9 +434,14 @@ def main() -> None:
     #convert the input file
     asm_file_name = args.Input
     program = Program(asm_file_name)
-    tokenise(program)
-    first_pass(program)
-    second_pass(program)
+    try:
+        tokenise(program)
+        first_pass(program)
+        second_pass(program)
+    except Exception as ex:
+        print(ex)
+        print("An error has occurred! Aborting...")
+        sys.exit()
 
     machine_code = program.machine_code
     if args.Output:

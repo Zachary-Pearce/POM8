@@ -198,7 +198,9 @@ class Parser:
             expected_types = [ f"{TokenType.MNEMONIC.name}/"+
                               f"{TokenType.HEXADECIMAL.name}" ]
         elif inst_format == Format.IMMEDIATE_FORMAT:
-            if (self.peek_ahead(1).type in [TokenType.DECIMAL,
+            if mnemonic in ["PUSH", "POP"]:
+                expected_types = [ f"{TokenType.REGISTER.name}" ]
+            elif (self.peek_ahead(1).type in [TokenType.DECIMAL,
                                             TokenType.HEXADECIMAL,
                                             TokenType.BINARY]):
                 expected_types = [ f"{TokenType.REGISTER.name}",

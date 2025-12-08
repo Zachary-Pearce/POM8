@@ -19,6 +19,11 @@ import re
 import sys
 import argparse
 
+import logging
+import logger_conf
+
+logger = logging.getLogger(__name__)
+
 OPCODE = {
     "NOP": "000001",
     "CALL": "000010",
@@ -121,6 +126,7 @@ def tokenise(file_name: str) -> list[Token]:
                         f"line {line_index+1}: '{label}' label already exists!"
                     )
                 symbol_table[label] = line_index
+                logger.info(f"Line {line_index+1}: label ({label}) created for address {hex(address)}")
             else:
                 tokens.append(token)
 
@@ -217,7 +223,6 @@ def main() -> None:
     #read input argumnets
     args = parser.parse_args()
 
-    #convert the input file
     asm_file_name = args.Input
     machine_code = []
     try:
@@ -226,8 +231,7 @@ def main() -> None:
         ast = parser.parse_program()
         machine_code = second_pass(ast)
     except Exception as ex:
-        print(ex)
-        print("An error has occurred! Aborting...")
+        logger.error(ex)
         sys.exit()
 
     if args.Output:
@@ -236,7 +240,7 @@ def main() -> None:
         write_file(bin_file_name, machine_code)
     else:
         for line in machine_code:
-            print(line)
+            logger.debug(line)
 
 if __name__ == "__main__":
     main()

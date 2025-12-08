@@ -14,6 +14,11 @@ from dataclasses import dataclass
 from typing import Callable, Dict
 from enum import Enum
 
+import logging
+import logger_conf
+
+logger = logging.getLogger(__name__)
+
 class Format(Enum):
     """
     An enumeration of possible instruction formats.
@@ -207,15 +212,17 @@ class Parser:
                                   f"{TokenType.HEXADECIMAL.name}/"+
                                   f"{TokenType.BINARY.name}" ]
         elif inst_format == Format.REGISTER_FORMAT:
-            expected_types = [ f"{TokenType.REGISTER.name}",
-                              f"{TokenType.REGISTER.name}",
-                              f"{TokenType.REGISTER.name}" ]
+            if mnemonic in ["LSL", "LSR", "MOV", "IJMP"]:
+                expected_types = [ f"{TokenType.REGISTER.name}",
+                                  f"{TokenType.REGISTER.name}" ]
+            else:
+                expected_types = [ f"{TokenType.REGISTER.name}",
+                                  f"{TokenType.REGISTER.name}",
+                                  f"{TokenType.REGISTER.name}" ]
         
         token = self.current_token
-        i = 0
-        while self.current_token.type is not TokenType.NEWLINE:
+        for expected in expected_types:
             token = self.advance()
-            expected = expected_types[i]
             if token.type.name not in expected:
                 raise SyntaxError(
                     f"line {token.line_num}: Expected operand of type {expected}, got {token.type.name}"
@@ -227,8 +234,8 @@ class Parser:
                 raise SyntaxError(
                     f"line {token.line_num}: Invalid value {token.text} for operand of type {token.type.name}"
                 )
+            logger.info(f"Line {self.current_token.line_num}: Created {new_operand.__repr__()}")
             operands.append(new_operand)
-            i += 1
         token = self.advance() #consume newline
 
         return operands
@@ -265,4 +272,5 @@ class Parser:
         while self.current_token is not None:
             instruction = self.parse_intruction()
             instructions.append(instruction)
+            logger.debug(f"Parsed {instruction.inst_format.name} instruction.\n")
         return Program(instructions)

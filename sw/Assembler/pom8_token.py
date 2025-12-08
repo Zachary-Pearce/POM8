@@ -38,6 +38,7 @@ class TokenType(Enum):
     HEXADECIMAL = 5
     DECIMAL = 6
     BINARY = 7
+    NEWLINE = 8
 
 #Precompiled regex patterns for performance
 # .upper() or .lower() can be slower, so we use re.IGNORECASE
@@ -54,6 +55,7 @@ class Token():
 
     Properties:
         text (str): The portion of code associated with the token.
+        line_num (int): The line number of the token, for error tracking.
         type (TokenType): The tokens type as a TokenType member.
     """
 
@@ -82,6 +84,8 @@ class Token():
         #anything can be in a comment so we check for it first
         if self._text.startswith(";"):
             return TokenType.COMMENT
+        elif self._text.endswith("\n"):
+            return TokenType.NEWLINE
         #registers start with an r followed by a number
         elif _REGISTER_RE.fullmatch(self._text):
             return TokenType.REGISTER
@@ -107,6 +111,11 @@ class Token():
     def text(self) -> str:
         """The portion of code associated with the token."""
         return self._text
+    
+    @property
+    def line_num(self) -> int:
+        """The line number of the token, for error tracking."""
+        return self._line_num
 
     @property
     def type(self) -> TokenType:

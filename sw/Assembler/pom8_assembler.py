@@ -14,25 +14,10 @@ Classes:
 """
 
 from pom8_token import *
-from dataclasses import dataclass, field
-from typing import Dict
-from enum import Enum
+from pom8_parser import *
 import re
 import sys
 import argparse
-
-class Format(Enum):
-    """
-    An enumeration of possible instruction formats.
-    
-    Members:
-        REGISTER_FORMAT
-        BRANCH_FORMAT
-        IMMEDIATE_FORMAT
-    """
-    REGISTER_FORMAT = 1
-    BRANCH_FORMAT = 2
-    IMMEDIATE_FORMAT = 3
 
 OPCODE = {
     "NOP": "000001",
@@ -78,29 +63,6 @@ FUNCT = {
     "INC": "010000"
 }
 
-FORMATS = {
-    Format.REGISTER_FORMAT: ["MNEMONIC", "REGISTER", "REGISTER", "REGISTER"],
-    Format.BRANCH_FORMAT: ["MNEMONIC", "HEXADECIMAL/MNEMONIC"],
-    Format.IMMEDIATE_FORMAT: ["MNEMONIC", "REGISTER", "REGISTER/DECIMAL/HEXADECIMAL/BINARY", "DECIMAL/HEXADECIMAL/BINARY"]
-}
-
-@dataclass
-class Line:
-    index: int
-    tokens: list[Token] = field(default_factory=list)
-    format: Format = Format.REGISTER_FORMAT
-
-    def __repr__(self) -> str:
-        """String representation of the Line object."""
-        return f"Line(index={self.index}, tokens='{self.tokens}', format='{Format.REGISTER_FORMAT.name}')"
-
-@dataclass
-class Program:
-    file_name: str
-    labels: Dict[str, int] = field(default_factory=lambda: dict())
-    lines: list[Line] = field(default_factory=list)
-    machine_code: list[str] = field(default_factory=list)
-
 def read_file(file_name: str) -> str:
     """
     Helper function to read an assembly text file and return the contents.
@@ -131,23 +93,22 @@ def write_file(file_name: str, machine_code: list[str]) -> None:
         for line in machine_code:
             f.write(line + "\n")
 
-def tokenise(program: Program) -> None:
+def tokenise(file_name: str) -> list[Token]:
     """
     tokenise the lines of assembly and store them.
 
     Parameters:
         program (Program): The assembly program.
     """
-    asm = read_file(program.file_name)
+    tokens = []
+    asm = read_file(file_name)
     asm_lines = re.split("\n", asm)
-    line_index = 0
-    for line in asm_lines:
+    address = 0 #keep track of address separately to line number
+    for line_index, line in enumerate(asm_lines):
         if not line.strip():
             continue #skip empty lines
 
-        program_line : Line = Line(line_index)
         # split line into items based on commas and/or whitespace
-        # we shouldn't have to check for whitespaces after this regex
         line_items = re.split(r"[,][ ]*|[ \t]+", line.strip())
         for item in line_items:
             token = Token(item, line_index+1)
@@ -155,261 +116,84 @@ def tokenise(program: Program) -> None:
                 break #everything after a comment (;) is ignored
             elif token.type == TokenType.LABEL:
                 label = token.text[:-1] #strip colon from label text
-                _label_semantics(program, label, line_index)
-            else:
-                program_line.tokens.append(token)
-
-        #ignore lines that only contain comments
-        if len(program_line.tokens) > 0:
-            program.lines.append(program_line)
-            line_index += 1
-
-def _label_semantics(program: Program, label: str, line_index: int) -> None:
-    """
-    Semantically analyse found labels, store them in a dictionary if valid.
-
-    Parameters:
-        program (Program): The assembly program.
-        label (str): The label to analyse.
-        line_index (int): The index of the current line.
-
-    Raises:
-        SyntaxError: If there is a duplicate label.
-    """
-    if label in program.labels:
-        raise SyntaxError(
-            f"line {line_index+1}: '{label}' label already exists!"
-        )
-
-    program.labels[label] = line_index
-
-def _get_line_format(program: Program, line_index: int) -> None:
-    """
-    Gets the instruction format relating to a line of assembly.
-
-    Parameters:
-        program (Program): The assembly program.
-        line_index (int): The index of the line.
-    
-    Returns:
-        format (Format): The lines format as a Format member.
-
-    Raises:
-        SyntaxError: If the given mnemonic is not valid.
-    """
-    line = program.lines[line_index]
-    #the first element will be an opcode mnemonic
-    opcode_mnemonic = line.tokens[0].text.upper()
-    if opcode_mnemonic not in OPCODE:
-        line.format = Format.REGISTER_FORMAT
-    elif (opcode_mnemonic == "NOP"
-            or opcode_mnemonic == "CALL"
-            or opcode_mnemonic == "RET"
-            or opcode_mnemonic == "JMP"
-            or opcode_mnemonic == "BRZ"
-            or opcode_mnemonic == "BRN"
-            or opcode_mnemonic == "BRP"
-            or opcode_mnemonic == "BRC"
-            or opcode_mnemonic == "BRV"
-            or opcode_mnemonic == "HLT"):
-        line.format = Format.BRANCH_FORMAT
-    elif (opcode_mnemonic == "ADDI"
-            or opcode_mnemonic == "SUBI"
-            or opcode_mnemonic == "ANDI"
-            or opcode_mnemonic == "ORI"
-            or opcode_mnemonic == "XORI"
-            or opcode_mnemonic == "LDI"
-            or opcode_mnemonic == "LDA"
-            or opcode_mnemonic == "LDO"
-            or opcode_mnemonic == "STA"
-            or opcode_mnemonic == "PUSH"
-            or opcode_mnemonic == "POP"):
-        line.format = Format.IMMEDIATE_FORMAT
-    else:
-        raise SyntaxError (
-            f"Line {line_index+1}: '{opcode_mnemonic}' is not a valid MNEMONIC!"
-        )
-
-def _check_symbols(program: Program, token: Token, line_num: int) -> None:
-    """
-    Check for unexpected symbols in operands.
-
-    Parameters:
-        token (Token): The token to check.
-        line_num (int): The token's line number.
-
-    Raises:
-        SyntaxError: If there are unexpected symbols.
-    """
-    token_type = token.type
-
-    match token_type:
-        case TokenType.MNEMONIC:
-            mnemonic = token.text
-            if mnemonic not in program.labels:
-                raise SyntaxError (
-                    f"Line {line_num}: '{mnemonic}' is not a valid {token_type.name}!"
-                )
-
-def _check_overflow(token: Token, line_num: int) -> None:
-    """
-    Check that all inputs are within range.
-
-    Parameters:
-        token (Token): The token to check.
-        line_num (int): The token's line number.
-    
-    Raises:
-        OverflowError: If any input is out of range.
-    """
-    token_type = token.type
-
-    match token_type:
-        case TokenType.REGISTER:
-            reg_num = token.text[1:]
-            if int(reg_num, 10) > 15:
-                raise OverflowError(
-                    f"Line {line_num}: {token_type.name} index '{reg_num}' out of range, expected range 0-15"
-                )
-        case TokenType.HEXADECIMAL:
-            _hex = token.text[2:]
-            if len(_hex) > 3 or not _hex[0].isdigit() or int(_hex[0], 10) > 3:
-                raise OverflowError(
-                    f"Line {line_num}: {token_type.name} '{_hex}' out of range, expected range 0x000-0x3FF"
-                )
-        case TokenType.DECIMAL:
-            dec_num = token.text
-            if dec_num.startswith("-"):
-                if int(dec_num, 10) < -128:
-                    raise OverflowError(
-                        f"Line {line_num}: {token_type.name} word '{dec_num}' out of range, expected range -128-127"
-                    )
-            elif int(dec_num, 10) > 255:
-                raise OverflowError(
-                    f"Line {line_num}: {token_type.name} word '{dec_num}' out of range, expected range 0-255"
-                )
-        case TokenType.BINARY:
-            _bin = token.text[2:]
-            if len(_bin) > 8:
-                raise OverflowError(
-                    f"Line {line_num}: {token_type.name} word '{_bin}' out of range, expected 8-bit number"
-                )
-
-def first_pass(program: Program) -> None:
-    """
-    The first pass over the tokenised stream, performing the following:
-        Symbol table creation
-        Syntax analysis
-        Semantic analysis
-
-    Raises:
-        SyntaxError: If there is an unexpected token.
-    """
-    for line in program.lines:
-        line_index = program.lines.index(line)
-        #get the format of the line
-        _get_line_format(program, line_index)
-    
-        #now we can loop through the remaining tokens on the line
-        # we don't need to worry about opcodes that require no arguments
-        tokens = line.tokens
-        if len(tokens) > 1:
-            expected_tokens = FORMATS[line.format]
-            for i in range(1, len(tokens)): #skip first token as we have already checked this
-                if tokens[i].type.name in expected_tokens[i]:
-                    _check_symbols(program, tokens[i], line_index+1)
-                    _check_overflow(tokens[i], line_index+1)
-                else:
+                if label in symbol_table:
                     raise SyntaxError(
-                        f"Line {line_index+1}: Unexpected token '{tokens[i].type}', expected '{expected_tokens[i]}'"
+                        f"line {line_index+1}: '{label}' label already exists!"
                     )
+                symbol_table[label] = line_index
+            else:
+                tokens.append(token)
 
-def second_pass(program: Program) -> None:
+        if len(tokens) > 0: #ignore lines with only comments
+            address += 1
+            tokens.append(Token("\n", line_index+1))
+    
+    return tokens
+
+def second_pass(ast: Program) -> list[str]:
     """
     Assemble tokenised and syntax checked assembly code.
     """
-    for line in program.lines:
+    machine_code = []
+    for instruction in ast.instructions:
+        mnemonic = instruction.opcode_mnemonic
         machine_code_line = ""
-        tokens = line.tokens
-        mnemonic = tokens[0].text.upper()
+        Rd = Rs = Rt = 0
 
-        if line.format == Format.REGISTER_FORMAT:
-            Rd = 0
-            Rs = 0
-            Rt = 0
+        if instruction.inst_format == Format.REGISTER_FORMAT:
             Funct = FUNCT[mnemonic]
-            
-            # convert registers
+
             if mnemonic == "IJMP":
                 #IJMP is the only instruction that does not follow the Rd, Rs, Rt order
-                Rs = int(line[1].text[1:], 10)
-                Rt = int(line[2].text[1:], 10)
-            elif (mnemonic != "SETC"
-                    or mnemonic != "CLRC"
-                    or mnemonic != "SETV"
-                    or mnemonic != "CLRV"):
-                #all other instructions with inputs follow the order
+                Rs = instruction.operands[0].reigster_num
+                Rt = instruction.operands[1].register_num
+            else:
                 registers = [0, 0, 0]
-                for x in range(1,len(tokens)):
-                    registers[x-1] = int(tokens[x].text[1:], 10)
-                
-                Rd = registers[0]
-                Rs = registers[1]
-                Rt = registers[2]
-
+                for x, operand in enumerate(instruction.operands):
+                    registers[x] = operand.register_num
+                Rd, Rs, Rt = registers
+            
             machine_code_line = ("000000"
                                     + f"{Rd:04b}"
                                     + f"{Rs:04b}"
                                     + f"{Rt:04b}"
                                     + Funct)
-        elif line.format == Format.BRANCH_FORMAT:
+        elif instruction.inst_format == Format.BRANCH_FORMAT:
             opcode = OPCODE[mnemonic]
-            
+
             #is it a label or a hex input
-            immediate = "0000000000000000"
-            if len(tokens) > 1:
-                if tokens[1].text in program.labels:
-                    immediate = f"{program.labels[tokens[1].text]:016b}"
+            address = 0
+            if len(instruction.operands) >= 1:
+                operand = instruction.operands[0]
+                if isinstance(operand, LabelOperand):
+                    address = symbol_table[operand.name]
                 else:
-                    _hex = tokens[1].text[2:]
-                    decimal = int(_hex, 16)
-                    immediate = f"{decimal:016b}"
+                    address = operand.value
             
             machine_code_line = (opcode
                                     + "00"
-                                    + immediate)
-        elif line.format == Format.IMMEDIATE_FORMAT:
+                                    + f"{address:016b}")
+        elif instruction.inst_format == Format.IMMEDIATE_FORMAT:
             opcode = OPCODE[mnemonic]
-            immediate = "0000000000"
-            Rd = 0
-            Rs = 0
+
+            imm_op : ImmediateOperand = None
+            registers = [0, 0]
+            for x, op in enumerate(instruction.operands):
+                if isinstance(op, RegisterOperand):
+                    registers[x] = op.register_num
+                else: #immediate operand
+                    imm_op = op
 
             #STA and PUSH do not follow the Rd, Rs, Rt order
             if (mnemonic == "STA"
                 or mnemonic == "PUSH"):
-                Rs = int(tokens[1].text[1:], 10)
-            else:
-                #all other instructions follow the order
-                registers = [0, 0]
-                for x in range(1,len(tokens)-1):
-                    registers[x-1] = int(tokens[x].text[1:], 10)
-                
-                Rd = registers[0]
                 Rs = registers[0]
-
-            #immediate comes after the registers
-            #so use x+1 to index where x is the index of the last register
-            if x+1 < len(tokens): #some instructions do not contain immediates
-                if tokens[x+1].type == TokenType.HEXADECIMAL:
-                    _hex = tokens[x+1].text[2:]
-                    decimal = int(_hex, 16)
-                elif tokens[x+1].type == TokenType.BINARY:
-                    _bin = tokens[x+1].text[2:]
-                    decimal = int(_bin, 2)
-                else: #if the input is a decimal
-                    decimal = int(tokens[x+1].text, 10)
-                
-                if tokens[x+1].text.startswith("-"):
+            else:
+                Rd, Rs = registers
+            
+            if imm_op is not None:
+                decimal = imm_op.value
+                if decimal < 0:
                     immediate = "00" + bin((1 << 8) + decimal)[2:]
                 else:
                     immediate = f"{decimal:010b}"
@@ -419,7 +203,9 @@ def second_pass(program: Program) -> None:
                                     + f"{Rs:04b}"
                                     + immediate)
 
-        program.machine_code.append(machine_code_line)
+        machine_code.append(machine_code_line)
+    
+    return machine_code
 
 def main() -> None:
     help_msg = "Convert a POM8 assembly file into machine code."
@@ -433,17 +219,17 @@ def main() -> None:
 
     #convert the input file
     asm_file_name = args.Input
-    program = Program(asm_file_name)
+    machine_code = []
     try:
-        tokenise(program)
-        first_pass(program)
-        second_pass(program)
+        tokens = tokenise(asm_file_name)
+        parser = Parser(tokens)
+        ast = parser.parse_program()
+        machine_code = second_pass(ast)
     except Exception as ex:
         print(ex)
         print("An error has occurred! Aborting...")
         sys.exit()
 
-    machine_code = program.machine_code
     if args.Output:
         #if an output was provided
         bin_file_name = args.Output

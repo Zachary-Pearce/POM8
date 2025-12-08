@@ -105,13 +105,13 @@ def tokenise(file_name: str) -> list[Token]:
     Parameters:
         program (Program): The assembly program.
     """
-    tokens = []
+    tokens: list[Token] = []
     asm = read_file(file_name)
     asm_lines = re.split("\n", asm)
     address = 0 #keep track of address separately to line number
     for line_index, line in enumerate(asm_lines):
-        if not line.strip():
-            continue #skip empty lines
+        if not line.strip() or line.strip().startswith(";"):
+            continue #skip empty lines or lines with only comments
 
         # split line into items based on commas and/or whitespace
         line_items = re.split(r"[,][ ]*|[ \t]+", line.strip())
@@ -129,10 +129,9 @@ def tokenise(file_name: str) -> list[Token]:
                 logger.info(f"Line {line_index+1}: label ({label}) created for address {hex(address)}")
             else:
                 tokens.append(token)
-
-        if len(tokens) > 0: #ignore lines with only comments
-            address += 1
-            tokens.append(Token("\n", line_index+1))
+            
+        address += 1
+        tokens.append(Token("\n", line_index+1))
     
     return tokens
 

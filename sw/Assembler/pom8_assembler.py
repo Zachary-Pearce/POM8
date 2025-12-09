@@ -78,7 +78,7 @@ def read_file(file_name: str) -> str:
     Returns:
         asm (str): the assembly code read from the file
     """
-    asm: str = []
+    asm: str = ""
     with open(file_name, "r") as f:
         f.seek(0)
         asm = f.read()
@@ -181,8 +181,8 @@ def second_pass(ast: Program) -> list[str]:
         elif instruction.inst_format == Format.IMMEDIATE_FORMAT:
             opcode = OPCODE[mnemonic]
 
-            imm_op : ImmediateOperand = None
             registers = [0, 0]
+            imm_op: ASTNode = ASTNode()
             for x, op in enumerate(instruction.operands):
                 if isinstance(op, RegisterOperand):
                     registers[x] = op.register_num
@@ -196,7 +196,7 @@ def second_pass(ast: Program) -> list[str]:
             else:
                 Rd, Rs = registers
             
-            if imm_op is not None:
+            if isinstance(imm_op, ImmediateOperand):
                 decimal = imm_op.value
                 if decimal < 0:
                     immediate = "00" + bin((1 << 8) + decimal)[2:]

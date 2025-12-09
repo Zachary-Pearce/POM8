@@ -109,6 +109,8 @@ class ImmediateOperand(ASTNode):
                     return self.value <= 255
             case TokenType.BINARY:
                 return self.value <= 255
+            case _:
+                return False
 
     def __repr__(self) -> str:
         """String representation of the ImmediateOperand object."""
@@ -189,7 +191,7 @@ class Parser:
     
     def parse_operands(self, mnemonic: str, inst_format: Format) -> list[ASTNode]:
         """Parse operands based on instruction format."""
-        operands = []
+        operands: list[ASTNode] = []
         expected_types : list[str] = []
         if mnemonic in ["NOP", "HLT", "RET", "SETC", "CLRC", "SETV", "CLRV"]:
             token = self.advance() #consume newline
@@ -270,7 +272,7 @@ class Parser:
     
     def parse_program(self) -> Program:
         """Parse the entire program and return the AST."""
-        instructions = []
+        instructions: list[Instruction] = []
         while self.current_token is not None:
             instruction = self.parse_intruction()
             instructions.append(instruction)

@@ -59,8 +59,8 @@ package body pomegranate_memory_map_conf is
 
     -- constant array to hold the number of addresses mapped to a device
     constant DEVICE_ADDRESSES: device_addresses_array := (
-        36879,
-        28657
+        512,
+        512
     );
 
     -- constant array to hold the number of address in a memory partition
@@ -72,7 +72,7 @@ package body pomegranate_memory_map_conf is
     -- constant array to hold the starting address of a memory partition
     constant MEMORY_PARTITION_ADDRESS: memory_partition_address_array := (
         0,
-        512
+        511
     );
 
     ---- FUNCTIONS ----

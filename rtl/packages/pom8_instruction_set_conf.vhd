@@ -24,11 +24,11 @@ package pomegranate_inst_conf is
 --==========================================================--
 
     constant word_w: NATURAL := 8; --the width of a word
-    constant instruction_w: NATURAL := 32; --the width of instructions
-    constant op_w: NATURAL := 4;    --the number of bits reserved for the opcode in instructions
+    constant instruction_w: NATURAL := 24; --the width of instructions
+    constant op_w: NATURAL := 6;    --the number of bits reserved for the opcode in instructions
     constant Raddr_w: NATURAL := 4; --the number of bits reserved for register addresses
-    constant Daddr_w: NATURAL := 16; --the number of bits reserved for data addresses
-    constant Iaddr_w: NATURAL := 8; --the number of bits reserved for instruction addresses
+    constant Daddr_w: NATURAL := 10; --the number of bits reserved for data addresses
+    constant Iaddr_w: NATURAL := 16; --the number of bits reserved for instruction addresses
     
     type opcodes is
     (
@@ -43,12 +43,18 @@ package pomegranate_inst_conf is
         BRP,
         BRC,
         BRV,
-        LDR,
-        LDW,
+        HLT,
+        ADDI,
+        SUBI,
+        ANDI,
+        ORI,
+        XORI,
         LDI,
-        STR,
-        STW,
-        STI
+        LDA,
+        LDO,
+        STA,
+        PUSH,
+        POP
     );
 
     type funct is
@@ -59,21 +65,17 @@ package pomegranate_inst_conf is
         ORG,
         NOTG,
         XORG,
-        ADDI,
-        SUBI,
-        ANDI,
-        ORI,
-        XORI,
         LSL,
         LSR,
         ADDC,
         SUBC,
-        PUSH,
-        POP,
         SETC,
         CLRC,
         SETV,
-        CLRV
+        CLRV,
+        MOV,
+        IJMP,
+        INC
     );
     
     type operands is
@@ -82,8 +84,9 @@ package pomegranate_inst_conf is
         Rd,
         Rs,
         Rt,
-        Immediate1,
-        Immediate2
+        Immediate16,
+        Immediate2,
+        Immediate8
     );
 
     type formats is
@@ -91,7 +94,7 @@ package pomegranate_inst_conf is
         --your instruction formats go here...
         register_format,
         branch_format,
-        addressing_format
+        immediate_format
     );
 
 --==========================================================--
@@ -109,7 +112,7 @@ package pomegranate_inst_conf is
     function BFormatCheck (op: in opcodes) return std_logic;
 
     --addressing format check
-    function AFormatCheck (op: in opcodes) return std_logic;
+    function IFormatCheck (op: in opcodes) return std_logic;
     
     ---- HELPER FUNCTIONS, DO NOT EDIT THESE ----
     --get operand function
@@ -142,7 +145,7 @@ package body pomegranate_inst_conf is
     --operand width table
     type t_operand_width is array (operands) of NATURAL;
     constant operand_width: t_operand_width := (
-        Raddr_w, Raddr_w, Raddr_w, word_w, word_w
+        Raddr_w, Raddr_w, Raddr_w, 16, 2, 8
     );
 
     --operand MSB index table
@@ -150,9 +153,9 @@ package body pomegranate_inst_conf is
     -- each row contains the index of the MSB of the operands in the corresponding format
     type t_operand_table is array (formats, operands) of NATURAL;
     constant operand_table: t_operand_table := (
-        (11, 27, 23, 0, 7), --register format
-        (0, 27, 0, 19, 7), --branch format
-        (11, 27, 23, 19, 7) --addressing format
+        (17, 13, 9, 0, 0, 0), --register format
+        (0, 0, 0, 15, 0, 0),  --branch format
+        (17, 13, 0, 0, 9, 7)  --immediate format
     );
 
 --==========================================================--
@@ -168,7 +171,7 @@ package body pomegranate_inst_conf is
     begin
         case op2slv(op) is
             --this format contains just instructions with an opcode of "0000"
-            when "0000" => --replace the binary here
+            when "000000" => --replace the binary here
                 return '1';
             when others =>
                 return '0';
@@ -179,8 +182,8 @@ package body pomegranate_inst_conf is
     function BFormatCheck (op: in opcodes) return std_logic is
     begin
         case op2slv(op) is
-            --opcodes in this format are as follows: NOP, CALL, RET, JMP, BRZ, BRN, BRP, BRC, BRV
-            when "0001" | "0010" | "0011" | "0100" | "0101" | "0110" | "0111" | "1000" | "1001" =>
+            --opcodes in this format are as follows: NOP, CALL, RET, JMP, BRZ, BRN, BRP, BRC, BRV, HLT
+            when "000001" | "000010" | "000011" | "000100" | "000101" | "000110" | "000111" | "001000" | "001001" | "001010" =>
                 return '1';
             when others =>
                 return '0';
@@ -188,16 +191,16 @@ package body pomegranate_inst_conf is
     end function BFormatCheck;
 
     --addressing format check
-    function AFormatCheck (op: in opcodes) return std_logic is
+    function IFormatCheck (op: in opcodes) return std_logic is
     begin
         case op2slv(op) is
-            --opcodes in this format are as follows: LDR, LDW, LDI, STR, STW, STI
-            when "1010" | "1011" | "1100" | "1101" | "1110" | "1111" =>
+            --opcodes in this format are as follows: ADDI, SUBI, ANDI, ORI, XORI, LDI, LDA, LDO, LDN, STA, STO, STN, PUSH, POP
+            when "001011" | "001100" | "001101" | "001110" | "001111" | "010000" | "010001" | "010010" | "010011" | "010100" | "010101" | "010110" | "010111" | "011000" =>
                 return '1';
             when others =>
                 return '0';
         end case;
-    end function AFormatCheck;
+    end function IFormatCheck;
     
     ---- HELPER FUNCTIONS, DO NOT EDIT THESE ----
     --get operand function

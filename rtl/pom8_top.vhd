@@ -21,7 +21,6 @@ entity POM8_Top is
 --        flag: out std_logic_vector(4 downto 0)
     );
 end entity POM8_Top;
-
 architecture Behavioral of POM8_Top is
 
 --components
@@ -56,7 +55,7 @@ end component reg_prim;
 --control unit
 component CU is
     Port (
-        clk, arst: in std_logic;
+        CLK, ARST: in std_logic;
         op: in opcodes;
         fnct: in funct;
         flag_bus: inout std_logic_vector(4 downto 0);
@@ -64,10 +63,11 @@ component CU is
         --ALU
         ALU_EN, ALU_STAT: out std_logic;
         ALU_OP: out std_logic_vector(3 downto 0);
-        --Data memory
+        --data memory
         MEM_WRITE, MEM_READ: out std_logic;
         --program counter
-        PC_UPDATE: out std_logic;
+        PCL_UPDATE: out std_logic;
+        PCH_UPDATE: out std_logic;
         --instruction register
         IR_WRITE: out std_logic;
         --stack pointer
@@ -76,13 +76,16 @@ component CU is
         SR_WE, SR_FLG, SR_CnS: out std_logic;
         --register file
         RF_WE, RF_CS: out std_logic;
-        --data bus management
+        --bus management
         ADR_SEL: out std_logic_vector(1 downto 0);
         OUT_SEL: out std_logic_vector(1 downto 0);
-        DAT_SEL: out std_logic_vector(1 downto 0);
+        DAT_SEL: out std_logic_vector(2 downto 0);
         --ALU input selection
         SRC_SEL: out std_logic_vector(1 downto 0);
-        TAR_SEL: out std_logic_vector(1 downto 0)
+        TAR_SEL: out std_logic_vector(1 downto 0);
+        --PC input selection
+        PCL_SEL: out std_logic_vector(1 downto 0);
+        PCH_SEL: out std_logic_vector(1 downto 0)
     );
 end component CU;
 
@@ -209,22 +212,27 @@ signal flag_bus: std_logic_vector(4 downto 0);
 signal ALU_EN, ALU_STAT: std_logic;
 signal ALU_OP: std_logic_vector(3 downto 0);
 signal MEM_WRITE, MEM_READ: std_logic;
-signal PC_UPDATE: std_logic;
+signal PCL_UPDATE: std_logic;
+signal PCH_UPDATE: std_logic;
 signal IR_WRITE: std_logic;
 signal SP_EN, SP_UPDATE: std_logic;
 signal SR_WE, SR_FLG, SR_CnS: std_logic;
 signal RF_WE, RF_CS: std_logic;
 
 -- mux select signals/bus management
-signal ADR_SEL: std_logic_vector(1 downto 0);
-signal OUT_SEL: std_logic_vector(1 downto 0);
-signal DAT_SEL: std_logic_vector(1 downto 0);
-signal SRC_SEL: std_logic_vector(1 downto 0);
-signal TAR_SEL: std_logic_vector(1 downto 0);
+signal ADR_SEL: std_logic_vector(1 downto 0); -- Z, ALU_out, SP_out, Imm10
+signal OUT_SEL: std_logic_vector(1 downto 0); -- Z, ALU_out_reg, ALU_out, DM_out
+signal DAT_SEL: std_logic_vector(2 downto 0); -- Z, Rs, Rt, Imm8, PCL_out, PCH_out, Z, Z
+signal SRC_SEL: std_logic_vector(1 downto 0); -- PCL_out, PCH_out, PC_old, Rs
+signal TAR_SEL: std_logic_vector(1 downto 0); -- Rt, Imm8, 1, Rt
+signal PCL_SEL: std_logic_vector(1 downto 0); -- data_bus, Rt, Imm16(8), data_bus
+signal PCH_SEL: std_logic_vector(1 downto 0); -- data_bus, Rs, Imm16(15), data_bus
 
 --MUX's
 signal SRC_MUX_out: std_logic_vector(word_w-1 downto 0);
 signal TAR_MUX_out: std_logic_vector(word_w-1 downto 0);
+signal PCL_MUX_out: std_logic_vector(word_w-1 downto 0);
+signal PCH_MUX_out: std_logic_vector(word_w-1 downto 0);
 
 -- wires
 signal C_flag: std_logic;
@@ -241,6 +249,8 @@ signal GPIO_out: std_logic_vector(word_w-1 downto 0);
 signal GPIO_reg_out: std_logic_vector(word_w-1 downto 0);
 signal GPIO_reg_WE: std_logic;
 signal MEM_out: std_logic_vector(word_w-1 downto 0);
+signal SP_out: std_logic_vector(Daddr_w-1 downto 0);
+signal s,t,d: std_logic_vector(Raddr_w-1 downto 0);
 
 begin
 
@@ -253,14 +263,15 @@ CU_inst: CU port map (
     clk => CLK,
     arst => RST,
     op => slv2op(instruction_bus(instruction_w-1 downto instruction_w-op_w)),
-    fnct => slv2funct(instruction_bus(19 downto 15)),
+    fnct => slv2funct(instruction_bus(5 downto 0)),
     flag_bus => flag_bus,
     ALU_EN => ALU_EN,
     ALU_STAT => ALU_STAT,
     ALU_OP => ALU_OP,
     MEM_WRITE => MEM_WRITE,
     MEM_READ => MEM_READ,
-    PC_UPDATE => PC_UPDATE,
+    PCL_UPDATE => PCL_UPDATE,
+    PCH_UPDATE => PCH_UPDATE,
     IR_WRITE => IR_WRITE,
     SP_EN => SP_EN,
     SP_UPDATE => SP_UPDATE,
@@ -273,11 +284,13 @@ CU_inst: CU port map (
     OUT_SEL => OUT_SEL,
     DAT_SEL => DAT_SEL,
     SRC_SEL => SRC_SEL,
-    TAR_SEL => TAR_SEL
+    TAR_SEL => TAR_SEL,
+    PCL_SEL => PCL_SEL,
+    PCH_SEL => PCH_SEL
 );
 --simulation outputs
 --op1 <= slv2op(instruction_bus(instruction_w-1 downto instruction_w-op_w));
---fnct1 <= slv2funct(instruction_bus(19 downto 15));
+--fnct1 <= slv2funct(instruction_bus(5 downto 0));
 --data <= data_bus;
 --data_address <= data_address_bus;
 --instruction <= instruction_bus;
@@ -301,16 +314,40 @@ SR_inst: Status_Register generic map (
 --THE INSTRUCTION MEMORY SECTION                            --
 --==========================================================--
 
---program counter instance
-PC_inst: counter_reg_prim generic map (
-    Iaddr_w,
+--PCL MUX
+with PCL_SEL select
+    PCL_MUX_out <=  tar_register when "01",
+                    GetOperand(instruction_bus, branch_format, Immediate16)(7 downto 0) when "10",
+                    data_bus when others;
+
+--program counter low instance
+PCL_inst: counter_reg_prim generic map (
+    Iaddr_w/2,
     "00000000" --initialise at 0
 ) port map (
     CLK => CLK,
     ARST => RST,
-    WE => PC_UPDATE,
-    address_next => data_bus,
-    address_out => instruction_address_bus
+    WE => PCL_UPDATE,
+    address_next => PCL_MUX_out,
+    address_out => instruction_address_bus(7 downto 0)
+);
+
+--PCH MUX
+with PCH_SEL select
+    PCH_MUX_out <=  src_register when "01",
+                    GetOperand(instruction_bus, branch_format, Immediate16)(15 downto 8) when "10",
+                    data_bus when others;
+
+--program counter high instance
+PCH_inst: counter_reg_prim generic map (
+    Iaddr_w/2,
+    "00000000" --initialise at 0
+) port map (
+    CLK => CLK,
+    ARST => RST,
+    WE => PCH_UPDATE,
+    address_next => PCH_MUX_out,
+    address_out => instruction_address_bus(15 downto 8)
 );
 
 -- old program counter register
@@ -327,9 +364,9 @@ PC_old_reg: reg_prim generic map (
 --instruction memory instance
 PM_inst: program_memory generic map (
     instruction_w,
-    Iaddr_w
+    8
 ) port map (
-    address => instruction_address_bus,
+    address => instruction_address_bus(7 downto 0),
     dout => ROM_instruction
 );
 
@@ -348,6 +385,9 @@ IR_inst: reg_prim generic map (
 --THE REGISTER SECTION                                      --
 --==========================================================--
 
+s <= GetOperand(instruction_bus, register_format, Rs);
+t <= GetOperand(instruction_bus, register_format, Rt);
+d <= GetOperand(instruction_bus, register_format, Rd);
 --register file instance
 RF_inst: reg_file generic map (
     word_w,
@@ -358,22 +398,23 @@ RF_inst: reg_file generic map (
     WE => RF_WE,
     CS => RF_CS,
     din => data_bus,
-    source_register => GetOperand(instruction_bus, register_format, Rs),
-    target_register => GetOperand(instruction_bus, register_format, Rt),
-    destination_register => GetOperand(instruction_bus, register_format, Rd),
+    source_register => s,
+    target_register => t,
+    destination_register => d,
     source_out => src_register,
     target_out => tar_register
 );
 
 --source MUX
 with SRC_SEL select
-    SRC_MUX_out <=  instruction_address_bus when "00",
-                    PC_old when "01",
+    SRC_MUX_out <=  instruction_address_bus(7 downto 0) when "00",
+                    instruction_address_bus(15 downto 8) when "01",
+                    PC_old(7 downto 0) when "10",
                     src_register when others;
 
 --target MUX
 with TAR_SEL select
-    TAR_MUX_out <=  GetOperand(instruction_bus, register_format, immediate2) when "01",
+    TAR_MUX_out <=  GetOperand(instruction_bus, immediate_format, immediate8) when "01",
                     "00000001" when "10",
                     tar_register when others;
 
@@ -416,9 +457,11 @@ with OUT_SEL select
 
 --data MUX
 with DAT_SEL select
-    data_bus <= src_register when "01",
-                GetOperand(instruction_bus, register_format, immediate2) when "10",
-                instruction_address_bus when "11",
+    data_bus <= src_register when "001",
+                tar_register when "010",
+                GetOperand(instruction_bus, immediate_format, immediate8) when "011",
+                instruction_address_bus(7 downto 0) when "100",
+                instruction_address_bus(15 downto 8) when "101",
                 (others => 'Z') when others;
 
 --stack pointer instance
@@ -429,15 +472,15 @@ SP_inst: Stack_Pointer generic map (
     RST => RST,
     enable => SP_EN,
     Pntr_INC => SP_UPDATE,
-    address => data_address_bus
+    address => SP_out
 );
 
 --data address MUX
 with ADR_SEL select
-    data_address_bus <= GetOperand(instruction_bus, addressing_format, immediate1) & GetOperand(instruction_bus, addressing_format, immediate2) when "01",
-                        GetOperand(instruction_bus, addressing_format, Rs) & GetOperand(instruction_bus, addressing_format, Rt) & GetOperand(instruction_bus, addressing_format, immediate1) when "10",
-                        "00000000" & ALU_out when "11",
-                        (others => 'Z') when others;
+    data_address_bus <= "ZZZZZZZZZZ" when "00",
+                        "00" & ALU_out when "01",
+                        SP_out when "10",
+                        GetOperand(instruction_bus, immediate_format, immediate2) & GetOperand(instruction_bus, immediate_format, immediate8) when others;
 
 --memory map logic
 GPIO_CS <= '1' when to_integer(unsigned(data_address_bus)) >= find_device_address(GPIO) else '0';
@@ -467,7 +510,7 @@ GPIO_inst: GPIO_Controller generic map (
     ARST => RST,
     CS => GPIO_CS,
     RnW => MEM_READ,
-    RS => data_address_bus(5 downto 4),
+    RS => data_address_bus(1 downto 0),
     din => data_bus,
     dout => GPIO_out,
     pins => pins

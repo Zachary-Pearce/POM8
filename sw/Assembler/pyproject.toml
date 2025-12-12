@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+authors = [
+    {name = "Zachary Pearce", email = "zachary.pearce25@gmail.com"},
+]
+dynamic = ["version"]
+name = "POM8_Assembler"
+description = "An assembler featuring tokenisation, semantic analysis, and syntax analysis for the POM8 microcontroller instruction set."
+readme = "README.md"
+requires-python = ">= 3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICEN[CS]E*"]
+
+keywords = ["POM8", "Assembler"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Assemblers",
+
+    "Programming Language :: Assembly",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+
+[project.urls]
+Repository = "https://github.com/Zachary-Pearce/POM8.git"
+Issues = "https://github.com/Zachary-Pearce/POM8/issues"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+python_files = "test_*.py"
+pythonpath = "./src/POM8_Assembler/"

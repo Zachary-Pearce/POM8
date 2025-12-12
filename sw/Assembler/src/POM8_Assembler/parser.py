@@ -15,7 +15,7 @@ from typing import Callable, Dict
 from enum import Enum
 
 import logging
-import logger_conf
+from logger_conf import *
 
 logger = logging.getLogger(__name__)
 
@@ -276,5 +276,5 @@ class Parser:
         while self.current_token is not None:
             instruction = self.parse_intruction()
             instructions.append(instruction)
-            logger.debug(f"Parsed {instruction.inst_format.name} instruction.\n")
+            logger.info(f"Parsed {instruction.inst_format.name} instruction.\n")
         return Program(instructions)

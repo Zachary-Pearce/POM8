@@ -26,12 +26,12 @@ LOGGING_CONFIG: dict[str, Any] = {
         "__main__": {
             "handlers": ["default"],
             "level": "DEBUG",
-            "propagate": False
+            "propagate": True
         },
         "pom8_parser": {
             "handlers": ["default"],
             "level": "DEBUG",
-            "propagate": False
+            "propagate": True
         }
     }
 }

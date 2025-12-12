@@ -52,10 +52,10 @@ By default this will output the resulting binary to the terminal, or you can wri
 python3 -m POM8_Assembler YourProgram.asm -o output.txt
 ```
 
-Alternatively, you can import the individual component of the package, `import *` is satisfactory as the `__all__` attribute is configured for each component.
+Alternatively, you can import the individual components of the package, `import *` is satisfactory as the `__all__` attribute is configured for each component.
 
 ## :seedling: Contribution
-We welcome contributions to any part off this package, please ensure that you run the unit tests after any change, you can do this by going to `<REPO DIR>/sw/Assembler/` and running pytest.
+We welcome contributions to any part of this package, please ensure that you run the unit tests after any change, you can do this by going to `<REPO DIR>/sw/Assembler/` and running pytest.
 
 ```bash
 python3 -m pytest

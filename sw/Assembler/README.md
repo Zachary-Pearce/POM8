@@ -49,7 +49,7 @@ python3 -m POM8_Assembler YourProgram.asm
 By default this will output the resulting binary to the terminal, or you can write the result to a file by providing an output file.
 
 ```bash
-python3 -m POM8_Assembler YourProgram.asm -o output.asm
+python3 -m POM8_Assembler YourProgram.asm -o output.txt
 ```
 
 Alternatively, you can import the individual component of the package, `import *` is satisfactory as the `__all__` attribute is configured for each component.

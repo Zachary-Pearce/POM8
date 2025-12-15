@@ -22,7 +22,9 @@ from logger_conf import *
 
 logger = logging.getLogger(__name__)
 
-OPCODE = {
+__all__ = ["read_file", "write_file", "tokenise", "second_pass"]
+
+_OPCODE = {
     "NOP": "000001",
     "CALL": "000010",
     "RET": "000011",
@@ -162,7 +164,7 @@ def second_pass(ast: Program) -> list[str]:
                                     + f"{Rt:04b}"
                                     + Funct)
         elif instruction.inst_format == Format.BRANCH_FORMAT:
-            opcode = OPCODE[mnemonic]
+            opcode = _OPCODE[mnemonic]
 
             #is it a label or a hex input
             address = 0
@@ -177,7 +179,7 @@ def second_pass(ast: Program) -> list[str]:
                                     + "00"
                                     + f"{address:016b}")
         elif instruction.inst_format == Format.IMMEDIATE_FORMAT:
-            opcode = OPCODE[mnemonic]
+            opcode = _OPCODE[mnemonic]
             immediate = "0000000000"
 
             registers = [0, 0]

@@ -1,3 +1,4 @@
+from parser import *
 from assembler import *
 from pom8_token import *
 import pytest

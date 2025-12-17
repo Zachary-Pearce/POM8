@@ -20,7 +20,7 @@ loopDone:   POP r0
 pwmGen:     STA r14, 0x201  ; set the PWM high
             CALL delay
             PUSH r0         ; save the delay cycles for high PWM
-            SUB r3, r0, r0  ; the delay cycles for low PWM
+            SUB r0, r3, r0  ; the delay cycles for low PWM
             STA r15, 0x201  ; set the PWM low
             CALL delay
             POP r0          ; restore the delay cycles for high PWM
@@ -31,7 +31,7 @@ start:      LDI r0, 0       ; 0% duty cycle
 
 incDuty:    CALL pwmGen     ; generate the PWM signal
             ADDI r0, r0, 1  ; increase LED brightness
-            SUB r3, r0, r2  ; check if the duty cycle is 100%
+            SUB r2, r3, r0  ; check if the duty cycle is 100%
             BRZ decDuty     ; if it is start to decrease brightness
             JMP incDuty
 

@@ -77,7 +77,7 @@ component CU is
         --register file
         RF_WE, RF_CS: out std_logic;
         --bus management
-        ADR_SEL: out std_logic_vector(1 downto 0);
+        ADR_SEL: out std_logic_vector(2 downto 0);
         OUT_SEL: out std_logic_vector(1 downto 0);
         DAT_SEL: out std_logic_vector(2 downto 0);
         --ALU input selection
@@ -220,7 +220,7 @@ signal SR_WE, SR_FLG, SR_CnS: std_logic;
 signal RF_WE, RF_CS: std_logic;
 
 -- mux select signals/bus management
-signal ADR_SEL: std_logic_vector(1 downto 0); -- Z, ALU_out, SP_out, Imm10
+signal ADR_SEL: std_logic_vector(2 downto 0); -- Z, ALU_out, SP_out, Imm10, SP_reg_out, Z, Z
 signal OUT_SEL: std_logic_vector(1 downto 0); -- Z, ALU_out_reg, ALU_out, DM_out
 signal DAT_SEL: std_logic_vector(2 downto 0); -- Z, Rs, Rt, Imm8, PCL_out, PCH_out, Z, Z
 signal SRC_SEL: std_logic_vector(1 downto 0); -- PCL_out, PCH_out, PC_old, Rs
@@ -250,6 +250,7 @@ signal GPIO_reg_out: std_logic_vector(word_w-1 downto 0);
 signal GPIO_reg_WE: std_logic;
 signal MEM_out: std_logic_vector(word_w-1 downto 0);
 signal SP_out: std_logic_vector(Daddr_w-1 downto 0);
+signal SP_reg_out: std_logic_vector(Daddr_w-1 downto 0);
 signal s,t,d: std_logic_vector(Raddr_w-1 downto 0);
 
 begin
@@ -475,12 +476,25 @@ SP_inst: Stack_Pointer generic map (
     address => SP_out
 );
 
+--stack pointer output register
+SP_out_reg: reg_prim generic map (
+    Daddr_w
+) port map (
+    CLK => CLK,
+    ARST => RST,
+    WE => SP_EN,
+    din => SP_out,
+    dout => SP_reg_out
+);
+
 --data address MUX
 with ADR_SEL select
-    data_address_bus <= "ZZZZZZZZZZ" when "00",
-                        "00" & ALU_out when "01",
-                        SP_out when "10",
-                        GetOperand(instruction_bus, immediate_format, immediate2) & GetOperand(instruction_bus, immediate_format, immediate8) when others;
+    data_address_bus <= "ZZZZZZZZZZ" when "000",
+                        "00" & ALU_out when "001",
+                        SP_out when "010",
+                        GetOperand(instruction_bus, immediate_format, immediate2) & GetOperand(instruction_bus, immediate_format, immediate8) when "011",
+                        SP_reg_out when "100",
+                        "ZZZZZZZZZZ" when others;
 
 --memory map logic
 GPIO_CS <= '1' when to_integer(unsigned(data_address_bus)) >= find_device_address(GPIO) else '0';

@@ -28,7 +28,7 @@ entity CU is
         --register file
         RF_WE, RF_CS: out std_logic;
         --bus management
-        ADR_SEL: out std_logic_vector(1 downto 0);
+        ADR_SEL: out std_logic_vector(2 downto 0);
         OUT_SEL: out std_logic_vector(1 downto 0);
         DAT_SEL: out std_logic_vector(2 downto 0);
         --ALU input selection
@@ -42,7 +42,7 @@ end entity CU;
 
 architecture Behavioral of CU is
 
-    type state_t is (HALT, BOOT, PCL_INC, PCL_LOAD8, PCH_INC, PCH_SAVE, PCH_LOAD8, PC_LOAD16, DECODE, REGISTER_EXE, BRANCH_EXE, IMMEDIATE_EXE, MEM_WRITEBACK);
+    type state_t is (HALT, BOOT, PCL_INC, PCL_FETCH8, PCL_LOAD8, PCH_INC, PCH_SAVE, PCH_LOAD8, PC_LOAD16, DECODE, REGISTER_EXE, BRANCH_EXE, IMMEDIATE_EXE, MEM_WRITEBACK);
     signal state, state_next: state_t;
 
 begin
@@ -78,7 +78,7 @@ begin
         RF_CS <= '0';
         PCL_SEL <= "00";  -- data_bus, Rt, Imm16(8), data_bus
         PCH_SEL <= "00";  -- data_bus, Rs, Imm16(15), data_bus
-        ADR_SEL <= "00";  -- Z, ALU_out, SP_out, Imm10
+        ADR_SEL <= "000"; -- Z, ALU_out, SP_out, Imm10, SP_reg_out, Z, Z
         OUT_SEL <= "00";  -- Z, ALU_out_reg, ALU_out, DM_out
         DAT_SEL <= "000"; -- Z, Rs, Rt, Imm8, PCL_out, PCH_out, Z, Z
         SRC_SEL <= "00";  -- PCL_out, PCH_out, PC_old, Rs
@@ -124,17 +124,13 @@ begin
             -- also pop PC high byte from the stack
             when PCL_LOAD8 =>
                 --update PCL with low byte over the data bus
+                ADR_SEL <= "100";
                 OUT_SEL <= "11";
                 PCL_SEL <= "00";
                 PCL_UPDATE <= '1';
 
-                --pop program counter high byte from the stack
-                SP_EN <= '1';
-                ADR_SEL <= "10";
-                MEM_READ <= '1';
-
-                --goto PCH_LOAD8 to load high byte in PCH
-                state_next <= PCH_LOAD8;
+                --fetch the next instruction
+                state_next <= PCL_INC;
             --=======================================================--
             -- PCH_INC
             -- Increment the high byte of the program counter,
@@ -157,7 +153,7 @@ begin
                 --save PC high byte
                 SP_EN <= '1';
                 SP_UPDATE <= '1';
-                ADR_SEL <= "10";
+                ADR_SEL <= "010";
                 DAT_SEL <= "101";
                 MEM_WRITE <= '1';
                 --goto PC_LOAD16 to switch to target address
@@ -167,11 +163,24 @@ begin
             -- Load a byte into PCH that was popped from the stack
             when PCH_LOAD8 =>
                 --update PCH with high byte over the data bus
+                ADR_SEL <= "100";
                 OUT_SEL <= "11";
                 PCH_SEL <= "00";
                 PCH_UPDATE <= '1';
-                --fetch the next instruction
-                state_next <= PCL_INC;
+                
+                --read PC low byte from the top of the stack
+                state_next <= PCL_FETCH8;
+            --=======================================================--
+            -- PCL_FETCH8
+            -- Read PC low byte from the top of the stack
+            when PCL_FETCH8 =>
+                --pop program counter low byte from the stack
+                SP_EN <= '1';
+                ADR_SEL <= "010";
+                MEM_READ <= '1';
+            
+                --goto PCL_LOAD8 to load low byte in PCL
+                state_next <= PCL_LOAD8;
             --=======================================================--
             -- PC_LOAD16
             -- Load a 16-bit immediate into the program counter,
@@ -272,18 +281,18 @@ begin
                         --save PC low byte 
                         SP_EN <= '1';
                         SP_UPDATE <= '1';
-                        ADR_SEL <= "10";
+                        ADR_SEL <= "010";
                         DAT_SEL <= "100";
                         MEM_WRITE <= '1';
                         --then goto PCH_SAVE
                         state_next <= PCH_SAVE;
                     when RET => --takes three clock cycles
-                        --pop PC low byte
+                        --pop PC high byte
                         SP_EN <= '1';
-                        ADR_SEL <= "10";
+                        ADR_SEL <= "010";
                         MEM_READ <= '1';
-                        --goto PCL_LOAD8 to load low byte into PCL
-                        state_next <= PCL_LOAD8;
+                        --goto PCH_LOAD8 to load high byte into PCL
+                        state_next <= PCH_LOAD8;
                     when JMP =>
                         --update PCL with low byte from instruction bus
                         PCL_SEL <= "10";
@@ -363,7 +372,7 @@ begin
                         RF_CS <= '1';
                         SP_EN <= '1';
                         SP_UPDATE <= '1';
-                        ADR_SEL <= "10";
+                        ADR_SEL <= "010";
                         DAT_SEL <= "001";
                         MEM_WRITE <= '1';
                         --fetch the next instruction
@@ -371,7 +380,7 @@ begin
                     when POP => --takes two clock cycles
                         --pop byte from the stack
                         SP_EN <= '1';
-                        ADR_SEL <= "10";
+                        ADR_SEL <= "010";
                         MEM_READ <= '1';
                         --write back to destination register
                         state_next <= MEM_WRITEBACK;
@@ -384,7 +393,7 @@ begin
                         state_next <= PCL_INC;
                     when LDA =>
                         --read byte from data memory
-                        ADR_SEL <= "11";
+                        ADR_SEL <= "011";
                         MEM_READ <= '1';
                         --write back to destination register
                         state_next <= MEM_WRITEBACK;
@@ -401,7 +410,7 @@ begin
                         SR_FLG <= '1';
 
                         --read from memory
-                        ADR_SEL <= "01";
+                        ADR_SEL <= "001";
                         MEM_READ <= '1';
 
                         --write back to destination register
@@ -410,7 +419,7 @@ begin
                         --write source register to memory
                         RF_CS <= '1';
                         DAT_SEL <= "001";
-                        ADR_SEL <= "11";
+                        ADR_SEL <= "011";
                         MEM_WRITE <= '1';
                         --fetch the next instruction
                         state_next <= PCL_INC;
@@ -439,11 +448,11 @@ begin
             when MEM_WRITEBACK =>
                 case op is
                     when LDO =>
-                        ADR_SEL <= "01";
+                        ADR_SEL <= "001";
                     when POP =>
-                        ADR_SEL <= "10";
+                        ADR_SEL <= "010";
                     when others => --LDA and unknowns
-                        ADR_SEL <= "11";
+                        ADR_SEL <= "011";
                 end case;
 
                 OUT_SEL <= "11";

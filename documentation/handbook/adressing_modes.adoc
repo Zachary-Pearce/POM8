@@ -1,0 +1,57 @@
+<<<
+:sectnums:
+== Addressing Modes
+In <<The Instruction Set, chapter 3>> we described operands as the inputs to an instruction, this could be data or an address. Addressing modes are the methods that processors use to identify the location of the operand(s) needed for executing an instruction.
+
+POM8 uses several addressing modes:
+
+* Direct Addressing
+* Stack Addressing
+* Register Addressing
+* Register Indirect Addressing
+* Displacement Addressing
+* Immediate Addressing
+
+This chapter will discuss these addressing modes in detail and show a datapath to give you an accurate idea of where the operands come from.
+
+=== Direct Addressing
+In direct addressing, the instruction contains the memory address (A) of the operand, the processor retrieves it from that address.
+
+.Direct Addressing Datapath
+[#direct-addressing-datapath,reftext='{figure-caption} {counter:refnum}']
+image::direct-addressing.png[Direct Addressing,align=center]
+
+=== Stack Addressing
+In stack addressing, the operand is implicitly taken from the top of the stack. As such the address is provided by the stack pointer.
+
+.Stack Addressing Datapath
+[#stack-addressing-datapath,reftext='{figure-caption} {counter:refnum}']
+image::stack-addressing.png[Stack Addressing,align=center]
+
+=== Register Addressing
+In register addressing, the operand is found in a register in the register file at the register address \(R) provided in the instruction.
+
+.Register Addressing Datapath
+[#register-addressing-datapath,reftext='{figure-caption} {counter:refnum}']
+image::register-addressing.png[Register Addressing,align=center]
+
+=== Register Indirect Addressing
+In register indirect addressing, the memory address (A) is provided by a register with address \(R). The processor then accesses the operand at the provided address.
+
+.Register Indirect Addressing Datapath
+[#register-indirect-addressing-datapath,reftext='{figure-caption} {counter:refnum}']
+image::register-indirect-addressing.png[Register Indirect Addressing,align=center]
+
+=== Displacement Addressing
+In displacement addressing, an effective address is calculated by adding a displacement (A) provided in the instruction to the contents of a register at address \(R).
+
+.Displacement Addressing Datapath
+[#displacement-addressing-datapath,reftext='{figure-caption} {counter:refnum}']
+image::displacement-addressing.png[Displacement Addressing,align=center]
+
+=== Immediate Addressing
+In immediate addressing, the operand is provided in the instruction itself.
+
+.Immediate Addressing Datapath
+[#immediate-addressing-datapath,reftext='{figure-caption} {counter:refnum}']
+image::immediate-addressing.png[Immediate Addressing,align=center]

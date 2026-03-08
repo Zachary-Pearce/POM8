@@ -1,0 +1,1318 @@
+<<<
+:sectnums:
+== The Instruction Set
+POM8's instruction set is a Reduced Instruction Set Computer (RISC) architecture in which instructions are simple operations. It contains 37 instructions, each three bytes long. First, we will address some of the common terms used in this chapter.
+
+Instructions are grouped based on their function and arguments. These groups are called instruction formats and define where each part of an instruction is located in machine code. Each part will typically be either one of the following:
+
+* Opcode - The operation that the instruction performs, represented by a mnemonic in assembly.
+* Operand(s) - The inputs that an instruction uses or manipulates. This may be in the form of an integer, a register, or a memory address.
+
+Programmers will provide these in their code so that the assembler can generate the final machine code. For example, take the following valid line of POM8 assembly:
+
+[source,POM8]
+----
+LDA r0, 0x200
+----
+
+The opcode is LDA and the operands are register 0 (r0) and a memory address (0x200). This is not the full story; instructions take time to execute. For processors, this time is measured in clock cycles.
+
+Different instructions may require different numbers of clock cycles to complete. Therefore, when writing assembly, choosing instructions with lower cycle counts can improve performance, especially inside loops.
+
+While writing assembly can seem intimidating at first, this is one area where it is simpler than high-level languages. As the execution time and memory usage of each instruction are known, you can make more informed decisions on whether your approach is efficient.
+
+=== Instruction Set Summary
+An instruction can be given many types of operands:
+
+* Rd - destination register, a register for a value to be written to.
+* Rs - source register, a register that provides the first input to an operation.
+* Rt - target register, a register that provides the second input to an operation.
+* Imm8 - Immediate data, these are 8-bit decimals.
+* SAddr - The start address of a subroutine in the instruction memory.
+* TAddr - The target address to jump to when performing jumps/branches.
+* DAddr - The address of a location in the data memory (RAM).
+
+[NOTE]
+All instructions require an additional clock cycle when the program counter crosses a page boundary, the instruction set summary shown in <<instruction-set-summary>> assumes the worst case scenario.
+
+.Instruction Set Summary
+[#instruction-set-summary,reftext='{table-caption} {counter:tablenum}']
+[cols="1,2,2,^1"]
+|===
+|*Instruction* |*Description* |*Operation* |*#Clock Cycles*
+|ADD Rd, Rs, Rt
+|Add without carry
+|Rd = Rs + Rt
+|4
+|SUB Rd, Rs, Rt
+|Subtract without carry
+|Rd = Rs - Rt
+|4
+|AND Rd, Rs, Rt
+|Logical AND
+|Rd = Rs AND Rt
+|4
+|OR Rd, Rs, Rt
+|Logical OR
+|Rd = Rs OR Rt
+|4
+|NOT Rd, Rs
+|Logical NOT
+|Rd = NOT Rs
+|4
+|XOR Rd, Rs, Rt
+|Logical exclusive OR
+|Rd = Rs XOR Rt
+|4
+|LSL Rd, Rs
+|Logical shift left
+|Rd = << Rs
+|4
+|LSR Rd, Rs
+|Logical shift right
+|Rd = Rs >>
+|4
+|ADDC Rd, Rs, Rt
+|Add with carry
+|Rd = Rs + Rt + C
+|4
+|SUBC Rd, Rs, Rt
+|Subtract with carry
+|Rd = Rs - Rt - C
+|4
+|SETC
+|Set the carry status flag
+|C = 1
+|4
+|CLRC
+|Clear the carry status flag
+|C = 0
+|4
+|SETV
+|Set the overflow status flag
+|V = 1
+|4
+|CLRV
+|Clear the overflow status flag
+|V = 0
+|4
+|MOV Rd, Rs
+|Copy the value of Rs into Rd
+|Rd = Rs
+|4
+|IJMP Rs, Rt
+|Indirect jump to {Rs, Rt}
+|PC = {Rs, Rt}
+|4
+|NOP
+|No operation
+|NA
+|4
+|CALL SAddr
+|Call a subroutine, push value of PC onto the stack
+|RAM(stack pointer) = PC, PC = SAddr
+|6
+|RET
+|Return from a subroutine, pop value of PC from the stack
+|PCH = RAM(stack pointer), PCL = RAM(stack pointer)
+|7
+|JMP TAddr
+|Jump to target address
+|PC = TAddr
+|4
+|BRZ TAddr
+|Jump to target address if Z flag set
+|PC = TAddr if Z == 1
+|4
+|BRN TAddr
+|Jump to target address if N flag set
+|PC = TAddr if N == 1
+|4
+|BRP TAddr
+|Jump to target address if P flag set
+|PC = TAddr if P == 1
+|4
+|BRC TAddr
+|Jump to target address if C flag set
+|PC = TAddr if C == 1
+|4
+|BRV TAddr
+|Jump to target address if V flag set
+|PC = TAddr if V == 1
+|4
+|HLT
+|Halt program execution
+|Halt
+|4
+|ADDI Rd, Rs, Imm8
+|Add immediate without carry
+|Rd = Rs + Imm8
+|4
+|SUBI Rd, Rs, Imm8
+|Subtract immediate without carry
+|Rd = Rs - Imm8
+|4
+|ANDI Rd, Rs, Imm8
+|Logical AND with immediate
+|Rd = Rs AND Imm8
+|4
+|ORI Rd, Rs, Imm8
+|Logical OR with immediate
+|Rd = Rs OR Imm8
+|4
+|XORI Rd, Rs, Imm8
+|Logical exclusive OR with immediate
+|Rd = Rs XOR Imm8
+|4
+|LDI Rd, Imm8
+|Load register with immediate
+|Rd = Imm8
+|4
+|LDA Rd, DAddr
+|Load register with contents of a data memory location
+|Rd = RAM(DAddr)
+|5
+|LDO Rd, Rs, Imm8
+|Load register indirectly with offset
+|Rd = RAM(Rs + Imm8)
+|5
+|STA Rs, DAddr
+|Store contents of register in data memory
+|RAM(DAddr) = Rs
+|4
+|PUSH Rs
+|Push contents of register onto stack
+|RAM(stack pointer) = Rs
+|4
+|POP Rd
+|Pop contents of register off the stack
+|Rd = RAM(stack pointer)
+|5
+|===
+
+== Instruction Description
+This section will go over each instruction in the set, give a long description of its operation and provide the syntax of the assembly code.
+
+Certain instructions change the value of the status flags, what status flags are changed will be marked using the key shown in <<flag-status-key>>.
+
+.Flag Status Key
+[#flag-status-key,reftext='{table-caption} {counter:tablenum}']
+|===
+|*Key* |*Description*
+|-
+|Status flag is not changed by this instruction.
+|x
+|Status flag is changed by this instruction.
+|===
+
+=== ADD
+Description::
+Adds the target register (Rt) to the source register (Rs) and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs + Rt
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+ADD Rd, Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+ADD r2, r0, r1  ; add r1 to r0 and store in r2
+----
+
+=== SUB
+Description::
+Subtracts the target register (Rt) from the source register (Rs) and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs - Rt
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+SUB Rd, Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+SUB r0, r1, r2  ; subtract r2 from r1 and store in r0
+----
+
+=== AND
+Description::
+Performs a logical AND between the contents of the source register (Rs) and target register (Rt), and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs AND Rt
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+AND Rd, Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+AND r3, r0, r2  ; AND r0 with r2
+----
+
+=== OR
+Description::
+Performs a logical OR between the contents of the source register (Rs) and target register (Rt), and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs OR Rt
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+OR Rd, Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+OR r1, r1, r2   ; OR r1 with r2 and store in r1
+----
+
+=== NOT
+Description::
+Performs a logical NOT on the contents of the source register (Rs) and places the result in the destination register (Rd).
+
+Operation::
+Rd = NOT Rs
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+NOT Rd, Rs
+----
+
+Example::
+[source,POM8]
+----
+NOT r1, r0  ; NOT r0 and store in r1
+----
+
+=== XOR
+Description::
+Performs a logical exclusive OR between the contents of the source register (Rs) and target register (Rt), and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs XOR Rt
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+XOR Rd, Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+XOR r2, r0, r2  ; XOR r0 with r2 and store in r2
+----
+
+=== LSL
+Description::
+Performs a logical shift left on the source register (Rs) and places the result in the destination register (Rd).
+
+Operation::
+Rd = << Rs
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+LSL Rd, Rs
+----
+
+Example::
+[source,POM8]
+----
+LSL r0, r1  ; shift r1 left, store in r0
+----
+
+=== LSR
+Description::
+Performs a logical shift right on the source register (Rs) and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs >>
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+LSR Rd, Rs
+----
+
+Example::
+[source,POM8]
+----
+LSR r0, r1  ; shift r1 right, store in r0
+----
+
+=== ADDC
+Description::
+Adds the target register (Rt) and carry flag (C) to the source register (Rs) and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs + Rt + C
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+ADDC Rd, Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+ADDC r0, r1, r2 ; adds r2 and C to r1, store in r0
+----
+
+=== SUBC
+Description::
+Subtracts the target register (Rt) and carry flag (C) from the source register (Rs) and places the result in the destination register (Rd).
+
+Operation::
+Rd = Rs - Rt - C
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+SUBC Rd, Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+SUBC r0, r1, r2 ; subtracts r2 and C from r1, store in r0
+----
+
+=== SETC
+Description::
+Sets the carry flag (C).
+
+Operation::
+C = 1
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|x
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+SETC
+----
+
+=== CLRC
+Description::
+Clears the carry flag (C).
+
+Operation::
+C = 0
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|x
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+CLRC
+----
+
+=== SETV
+Description::
+Sets the overflow flag (V).
+
+Operation::
+V = 1
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+SETV
+----
+
+=== CLRV
+Description::
+Clears the overflow flag (V).
+
+Operation::
+V = 0
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+CLRV
+----
+
+=== MOV
+Description::
+Copies the contents of the source register (Rs) into the destination register (Rd).
+
+Operation::
+Rd = Rs
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+MOV Rd, Rs
+----
+
+=== IJMP
+Description::
+Indirect jump to the instruction address pointed to by the concatenation of the source register (Rs) and target register (Rt).
+
+Operation::
+PC = {Rs, Rt}
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+IJMP Rs, Rt
+----
+
+Example::
+[source,POM8]
+----
+; r0 contains 0x00
+; r1 contains 0x1B
+
+; indirect jump to address 0x001B
+IJMP r0, r1
+----
+
+=== NOP
+Description::
+No operation.
+
+Operation::
+No operation.
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+NOP
+----
+
+=== CALL
+Description::
+Call a subroutine by pushing the value of the PC onto the stack and jumping to its start address (SAddr).
+
+Operation::
+RAM(stack pointer) = PC, PC = SAddr
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+CALL SAddr
+----
+
+Example::
+[source,POM8]
+----
+; define subroutine using label
+sub:    ; some code...
+
+CALL sub
+
+; or use hex addresses directly
+CALL 0x0300
+----
+
+=== RET
+Description::
+Return from a subroutine by popping original PC contents from the stack.
+
+Operation::
+PCH = RAM(stack pointer), PCL = RAM(stack pointer)
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+RET
+----
+
+Example::
+[source,POM8]
+----
+; define subroutine using label
+sub:    ; some code...
+        RET ; return from subroutine
+
+CALL sub    ; call subroutine and save address
+; some other code...
+----
+
+=== JMP
+Description::
+Jump to a target address (TAddr).
+
+Operation::
+PC = TAddr
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+JMP TAddr
+----
+
+Example::
+[source,POM8]
+----
+label:  ; label for some code
+
+JMP label   ; jump to label
+
+JMP 0x0030  ; or use hex addresses
+----
+
+=== BRZ
+Description::
+Jump to a target address (TAddr) if the zero flag (Z) is set.
+
+Operation::
+PC = TAddr if Z == 1
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+BRZ TAddr
+----
+
+Example::
+[source,POM8]
+----
+label:  ; label for some code
+
+BRZ label   ; jump to label
+
+BRZ 0x0030  ; or use hex addresses
+----
+
+=== BRN
+Description::
+Jump to a target address (TAddr) if the negative flag (N) is set.
+
+Operation::
+PC = TAddr if N == 1
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+BRN TAddr
+----
+
+Example::
+[source,POM8]
+----
+label:  ; label for some code
+
+BRN label   ; jump to label
+
+BRN 0x0030  ; or use hex addresses
+----
+
+=== BRP
+Description::
+Jump to a target address (TAddr) if the positive flag (P) is set.
+
+Operation::
+PC = TAddr if P == 1
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+BRP TAddr
+----
+
+Example::
+[source,POM8]
+----
+label:  ; label for some code
+
+BRP label   ; jump to label
+
+BRP 0x0030  ; or use hex addresses
+----
+
+=== BRC
+Description::
+Jump to a target address (TAddr) if the carry flag (C) is set.
+
+Operation::
+PC = TAddr if C == 1
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+BRC TAddr
+----
+
+Example::
+[source,POM8]
+----
+label:  ; label for some code
+
+BRC label   ; jump to label
+
+BRC 0x0030  ; or use hex addresses
+----
+
+=== BRV
+Description::
+Jump to a target address (TAddr) if the overflow flag (V) is set.
+
+Operation::
+PC = TAddr if V == 1
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+BRV TAddr
+----
+
+Example::
+[source,POM8]
+----
+label:  ; label for some code
+
+BRV label   ; jump to label
+
+BRV 0x0030  ; or use hex addresses
+----
+
+=== HLT
+Description::
+Halt program execution by entering a halt state, reset POM8 to leave the halt state.
+
+Operation::
+Enter halt state.
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+HLT
+----
+
+=== ADDI
+Description::
+Add immediate (Imm8) to the source register (Rs) and place the result in the destination register (Rd).
+
+Operation::
+Rd = Rs + Imm8
+
+* 0 &lt;= Imm8 &lt;= 255
+* 0x00 &lt;= Imm8 &lt;= 0xFF
+* 0b00000000 &lt;= Imm8 &lt;= 0b11111111
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+ADDI Rd, Rs, Imm8
+----
+
+Example::
+[source,POM8]
+----
+; immediates can be many data types
+ADDI r0, r0, 13         ; decimal
+ADDI r0, r0, 0x0D       ; hexadecimal
+ADDI r0, r0, 0b00001101 ; binary
+----
+
+=== SUBI
+Description::
+Subtract immediate (Imm8) from the source register (Rs) and place the result in the destination register (Rd).
+
+Operation::
+Rd = Rs - Imm8
+
+* 0 &lt;= Imm8 &lt;= 255
+* 0x00 &lt;= Imm8 &lt;= 0xFF
+* 0b00000000 &lt;= Imm8 &lt;= 0b11111111
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|x
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+SUBI Rd, Rs, Imm8
+----
+
+Example::
+[source,POM8]
+----
+; immediates can be many data types
+SUBI r0, r0, 13         ; decimal
+SUBI r0, r0, 0x0D       ; hexadecimal
+SUBI r0, r0, 0b00001101 ; binary
+----
+
+=== ANDI
+Description::
+Perform a logical AND between the source register (Rs) and an immediate (Imm8), and place the result in the destination register (Rd).
+
+Operation::
+Rd = Rs AND Imm8
+
+* 0 &lt;= Imm8 &lt;= 255
+* 0x00 &lt;= Imm8 &lt;= 0xFF
+* 0b00000000 &lt;= Imm8 &lt;= 0b11111111
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+ANDI Rd, Rs, Imm8
+----
+
+Example::
+[source,POM8]
+----
+; immediates can be many data types
+ANDI r0, r0, 13         ; decimal
+ANDI r0, r0, 0x0D       ; hexadecimal
+ANDI r0, r0, 0b00001101 ; binary
+----
+
+=== ORI
+Description::
+Perform a logical OR between the source register (Rs) and an immediate (Imm8), and place the result in the destination register (Rd).
+
+Operation::
+Rd = Rs OR Imm8
+
+* 0 &lt;= Imm8 &lt;= 255
+* 0x00 &lt;= Imm8 &lt;= 0xFF
+* 0b00000000 &lt;= Imm8 &lt;= 0b11111111
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+ORI Rd, Rs, Imm8
+----
+
+Example::
+[source,POM8]
+----
+; immediates can be many data types
+ORI r0, r0, 13         ; decimal
+ORI r0, r0, 0x0D       ; hexadecimal
+ORI r0, r0, 0b00001101 ; binary
+----
+
+=== XORI
+Description::
+Perform a logical exclusive OR between the source register (Rs) and an immediate (Imm8), and place the result in the destination register (Rd).
+
+Operation::
+Rd = Rs XOR Imm8
+
+* 0 &lt;= Imm8 &lt;= 255
+* 0x00 &lt;= Imm8 &lt;= 0xFF
+* 0b00000000 &lt;= Imm8 &lt;= 0b11111111
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|x
+|x
+|x
+|-
+|x
+|===
+
+Syntax::
+[source,POM8]
+----
+XORI Rd, Rs, Imm8
+----
+
+Example::
+[source,POM8]
+----
+; immediates can be many data types
+XORI r0, r0, 13         ; decimal
+XORI r0, r0, 0x0D       ; hexadecimal
+XORI r0, r0, 0b00001101 ; binary
+----
+
+=== LDI
+Description::
+Place an immediate (Imm8) into the destination register (Rd).
+
+Operation::
+Rd = Imm8
+
+* 0 &lt;= Imm8 &lt;= 255
+* 0x00 &lt;= Imm8 &lt;= 0xFF
+* 0b00000000 &lt;= Imm8 &lt;= 0b11111111
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+LDI Rd, Imm8
+----
+
+Example::
+[source,POM8]
+----
+; immediates can be many data types
+LDI r0, 13          ; decimal
+LDI r0, 0x0D        ; hexadecimal
+LDI r0, 0b00001101  ; binary
+----
+
+=== LDA
+Description::
+Copy the contents of a data memory address (DAddr) into the destination register (Rd).
+
+Operation::
+Rd = RAM(DAddr)
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+LDA Rd, DAddr
+----
+
+Example::
+[source,POM8]
+----
+LDA r0, 0x100
+----
+
+=== LDO
+Description::
+Fetch the contents of a data memory address provided by the adding an offset (Imm8) to the contents of the source register (Rs), and place it in the destination register (Rd).
+
+Operation::
+Rd = RAM(Rs + Imm8)
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+LDO Rd, Rs, Imm8
+----
+
+Example::
+[source,POM8]
+----
+LDO r0, r1, 5
+----
+
+=== STA
+Description::
+Copy the contents of the source register (Rs) into a data memory address (DAddr).
+
+Operation::
+RAM(DAddr) = Rs
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+STA Rs, DAddr
+----
+
+Example::
+[source,POM8]
+----
+STA r0, 0x010
+----
+
+=== PUSH
+Description::
+Push the contents of the source register (Rs) onto the stack.
+
+Operation::
+RAM(stack pointer) = Rs
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+PUSH Rs
+----
+
+Example::
+[source,POM8]
+----
+PUSH r0
+----
+
+=== POP
+Description::
+Pop a piece of data from the stack and place it in the destination register (Rd).
+
+Operation::
+Rd = RAM(stack pointer)
+
+[cols="5"]
+|===
+|*Z* |*N* |*P* |*C* |*V*
+|-
+|-
+|-
+|-
+|-
+|===
+
+Syntax::
+[source,POM8]
+----
+POP Rd
+----
+
+Example::
+[source,POM8]
+----
+POP r0
+----

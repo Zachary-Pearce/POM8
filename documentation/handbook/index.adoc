@@ -4,8 +4,9 @@
 :toc: left
 :imagesdir: ../images
 :title-logo-image: image::pomeg-dark.png[align=center]
+:source-highlighter: pygments
 
-= title
+= The POM8 Microcontroller Handbook
 
 [preface]
 == Preface
@@ -15,3 +16,27 @@ This book assumes some basic knowledge in FPGAs and Hardware Description Languag
 * link:https://nandland.com/learn-vhdl/[NAND Land VHDL Tutorials]
 
 include::dev_environment_setup.adoc[]
+
+include::architecture_overview.adoc[]
+
+include::instruction_set_overview.adoc[]
+
+include::adressing_modes.adoc[]
+
+include::assembly_syntax.adoc[]
+
+[glossary]
+= Glossary
+
+[glossary]
+FPGA:: Field Programmable Gate Array, a programmable integrated circuit that consists of an array of programmable logic blocks which can be configured and interconnected to perform various digital functions.
+
+Machine Code:: Binary instructions, that being sequences of 1s and 0s, that a processor can directly execute.
+
+Mnemonic:: In assembly languages, a mnemonic is a symbolic name used to represent a machine instruction. Each mnemonic typically responds to a specific operation the processor can perform, such as moving data.
+
+Opcode:: The operation that the instruction performs, represented by a mnemonic in assembly languages.
+
+Operand:: The inputs that an instruction uses or manipulates. This may be in the form of an integer, a register, or a memory address.
+
+Word:: A processors natural unit of data, it is the amount of data that a processor can process in one go. The word width is given in bits, where an 8-bit processor would have a word width of eight bits.

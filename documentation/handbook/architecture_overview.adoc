@@ -1,0 +1,108 @@
+<<<
+:sectnums:
+== The POM8 Architecture
+
+POM8 is an 8-bit microcontroller architecture with a custom Instruction Set Architecture (ISA). It is designed primarily with usability, accessibility, and education in mind. However a reasonable amount of consideration is also given to the performance, this allows the architecture to be an exemplar design. This section will give a very high-level understanding of POM8's architecture as described in <<#POM8-high-level-block-diagram>>.
+
+.High Level Block Diagram
+[#POM8-high-level-block-diagram,reftext='{figure-caption} {counter:refnum}']
+image::POM8-High-Level-Block-Diagram.png[Detailed Block Diagram,align=center]
+
+=== Program Counter
+The 16-bit Program Counter (PC) is split into a low-byte (PCL) and high-byte (PCH) counter, it holds the address of the current instruction being executed from the instruction memory. When an instruction is fetched from memory, the PC is incremented by increment PCL and then, if a carry is generated, PCH is incremented. When PCH is incremented, we call this crossing a page boundary.
+
+=== Instruction Register & Decode
+A 3-byte instruction is fetched and written to the Instruction Register (IR), the instruction is then synchronously decoded by the Control Unit (CU) to generate the control signals required for program execution.
+
+=== Register File
+The register file is an array of 16 general purpose registers each being a word wide. As POM8 is a register-based architecture, the register file holds the result of all operations, it is also used during register indirect addressing.
+
+=== Arithmetic Logic Unit
+The 8-bit Arithmetic Logic Unit (ALU) performs all arithmetic and logic operations. In addition, the ALU calculates the effective address used in indexed addressing.
+
+=== Status Register
+The status register is a 5-bit register that is updated after every ALU operation (except incrementing the program counter), it holds the value of the processors various flags:
+
+* Z - Zero flag, set if the result of the last ALU operation was zero.
+* N - Negative flag, set if the result of the last ALU operation was a signed negative number.
+* P - Positive flag, set if the result of the last ALU operation was a signed positive number.
+* C - Carry flag, set if the result of the last ALU operation generated a carry bit.
+* V - Overflow flag, set if the addition of two signed integers with the same sign results in the sign bit changing.
+
+The flags are stored in the order of the list above from the MSB to the LSB, as shown in <<status-register-flags>>.
+
+.Status Register Flags
+[#status-register-flags,reftext='{table-caption} {counter:tablenum}']
+[cols="5"]
+|===
+|*4* |*3* |*2* |*1* |*0*
+|Z
+|N
+|P
+|C
+|V
+|===
+
+=== Stack Pointer
+The stack pointer is a 10-bit register that holds the memory address of the top of the stack, each time data is pushed onto the stack, the stack pointer increments its stored address. Conversely, when data is popped off the top of the stack, the stack pointer decrements its stored address.
+
+=== Data Memory Space
+There are several devices mapped to the data memory space. <<memory-mapping>> describes the memory map.
+
+.Memory Mapping
+[#memory-mapping,reftext='{table-caption} {counter:tablenum}']
+[cols="1,2,1"]
+|===
+|*Devices* |*Number of Mapped Addresses* |*Starting Address*
+|RAM
+|512
+|0x000
+|GPIO
+|4
+|0x200
+|RESERVED
+|508
+|0x204
+|===
+
+==== RAM
+The RAM takes the first 512 words of the data memory space and consists of a single memory module. The RAM is split into several logical partitions as described in <<RAM-partitions>>.
+
+.RAM Partitions
+[#RAM-partitions,reftext='{table-caption} {counter:tablenum}']
+[cols="1,1,1,2"]
+|===
+|*Partition* |*Width of Partition* |*Starting Address* |*Description*
+|Stack
+|256 words
+|0x000
+|Space reserved for the hardware stack implemented in memory.
+|Free Space
+|256 words
+|0x100
+|Free space, can be used for general program data.
+|===
+
+These partitions are not enforced or strict, if you only use 4 words out of the 256 that the stack can hold then you have more free space to play with. However it is important to know the stack exists in memory to avoid overwriting general data.
+
+==== GPIO
+The GPIO (General Purpose Input Output) Controller is an array of 4 registers used to control and output to or read from the eight I/O pins. The GPIO registers are 8-bits wide, each bit corresponding to an I/O pin. The registers are described in <<GPIO-registers>>.
+
+.GPIO Registers
+[#GPIO-registers,reftext='{table-caption} {counter:tablenum}']
+[cols="1,1,3"]
+|===
+|*Relative Address* |*Name* |*Description*
+|0
+|in_reg
+|An 8-bit input buffer.
+|1
+|out_reg
+|An 8-bit output buffer.
+|2
+|DDR
+|An 8-bit Data Direction Register (DDR), if a bit is set, the related I/O pin is an output.
+|3
+|RESERVED
+|No function.
+|===

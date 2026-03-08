@@ -1,0 +1,409 @@
+<<<
+:sectnums:
+== Programming POM8
+Programming in assembly is different from high-level languages. Assembly languages use mnemonics to represent instructions while high-level languages use English-like statements.
+
+The process of compilation will convert the high-level code into assembly and then convert the resulting assembly into machine code. Each line of high-level code may translate into multiple lines of assembly.
+
+Another key difference between high-level and assembly code is program flow. In a high-level language, the order in which the code is written is only the order it is defined and not always the order it is executed.
+
+[source,python]
+----
+def function():
+    print("This is a function")
+
+def main():
+    print("This is the main function")
+    function()
+
+#execute the main function
+main()
+----
+
+The above code snippet shows the typical structure of a Python program. In this snippet we have defined a function and a main function. The last line is the first to be executed, calling the main function.
+
+In comparison, assembly code by default is executed in the order in which it is written. Below is an assembly equivalent of the python code above, printing has been abstracted as to focus on the structural differences.
+
+[source,POM8]
+----
+        ; execute the main function
+        CALL main
+        HLT
+
+func:   ; print
+        RET
+
+main:   ; print
+        CALL func
+        RET
+----
+
+We know in reality that processors run on a <<_program_counter, program counter>> which increments during instruction execution, this counter points to the instruction to be executed from program memory.
+
+In terms of the instruction set, every assembly mnemonic equates to exactly one instruction. POM8 instructions occupy a single address in program memory, this address can be 0x0000 to 0xFFFF. For simplicity, the first line will be located at address 0x0000, the second at 0x0001, and so on.
+
+If we want to change program flow so instructions are not executed in line order, we must use <<_brz, branches>> and <<_jmp, jumps>>. Let's annotate the previous assembly with each line's address to demonstrate this.
+
+[source,POM8]
+----
+        ; execute the main function
+        CALL main   ; 0x0000
+        HLT         ; 0x0001
+
+func:   ; print     ; 0x0002
+        RET         ; 0x0003
+
+main:   ; print     ; 0x0004
+        CALL func   ; 0x0005
+        RET         ; 0x0006
+----
+
+The processor will always begin at the first address, that being 0x0000, the processor takes the following steps to execute this program.
+
+. The first line to run is "CALL main", this will <<_call, call>> the main function by jumping to its address (0x0004) and saving the address stored in the program counter, 0x0000.
+. The program counter now points to 0x0004, the start of the "main" function. The processor will run the print statement on this line.
+. The program counter increments to 0x0005, the processor will <<_call, call>> the "func" function by jumping to its address (0x0002) and saving the address stored in the program counter, 0x0005.
+. The program counter now points to 0x0002, the start of the "func" function. The processor will run the print statement on this line.
+. The program counter increments to 0x0003, the processor will <<_ret, return>> from the "func" function to where we called it from. Storing the saved address, 0x0005 in the program counter.
+. The program counter increments to 0x0006, the processor will <<_ret, return>> from the "main" function to where we called it from. Storing the saved address, 0x0000 in the program counter.
+. The program counter increments to 0x0001, the processor will <<_hlt, halt>> program flow and therefore complete the execution of our program.
+
+This may seem foreign to you but this is exactly what the Python program does as well, it is just shown to you through a different lens, through which the low-level details of addresses and program counters is abstracted, hidden from view. This results in the high-level language being more readable, but the way the code is executed is fundamentally the same.
+
+It is clear that the assembly code is different. There is the addition of the <<_hlt, HLT>> instruction to clearly indicate when the program is done as well as the <<_ret, RET>> instruction that defines when to exit a function. Coding in assembly requires a different thought process to high-level languages however it is by no means a completely fresh start as you can see the overall structure isn't that different.
+
+Assembly also has its own tools to aid readability, we can use <<_labels, labels>> (such as "main" and "func") to abstract addresses so long as we understand the rules we need to follow. This chapter aims to help you understand those rules so that you can program POM8 in assembly.
+
+=== POM8 Assembly Syntax
+Each instruction has an opcode mnemonic and zero or more operands. The order and number of the operands depends on the instruction, <<instruction-set-summary>> shows this and the opcode mnemonic. Take the example of an <<_add, ADD>> instruction below.
+
+[source,POM8]
+----
+ADD r0, r0, r1
+----
+
+There must be a space between the instruction mnemonic and the first operand. Each operand is separated by a comma, with optional whitespace. There are multiple data types that can be used for operands:
+
+* Register - Registers are denoted with a prefix, 'r', followed by a digit 0-15 to represent the <<_register_file, 16 available registers>>.
+* Hexadecimal - Hexadecimals are denoted with a prefix, "0x", followed by any valid hexadecimal characters (0-9 and A-F).
+* Decimal - Decimals are automatically detected when only digits are used, e.g. 1.
+* Binary - Binary strings are denoted with a prefix, "0b", followed by any valid binary characters ('0' and '1').
+
+.Case Sensitivity
+[NOTE]
+POM8 is a case insensitive language, uppercase and lowercase letters are treated the same. For example, "R0" is the same as "r0" and "ADD" is the same as "add". <<_labels, Labels>> are an exception to this rule.
+
+The data types that can be used are determined by the operand. Operands also have a range of acceptable values, regardless of the data type. This information is summed up in <<operand-info>> below.
+
+.Summary of Operand Types and Ranges
+[#operand-info,reftext='{table-caption} {counter:tablenum}']
+[cols="1,2,3,3"]
+|===
+|*Operand* |*Description* |*Valid Types* |*Valid Range*
+|Rd
+|Destination register.
+|Register
+|r0-r15
+|Rs
+|Source register.
+|Register
+|r0-r15
+|Rt
+|Target register.
+|Register
+|r0-r15
+|Imm8
+|An 8-bit immediate.
+a|
+. Hexadecimal
+. Decimal
+. Binary
+a|
+. 0x00-0xFF
+. 0-255
+. 0b00000000-0b11111111
+|SAddr
+|Subroutine address.
+a|
+. Hexadecimal
+. <<_labels, Label>>
+a|
+. 0x0000-0xFFFF
+. N/A
+|TAddr
+|Branch/jump target address.
+a|
+. Hexadecimal
+. <<_labels, Label>>
+a|
+. 0x0000-0xFFFF
+. N/A
+|DAddr
+|Data address.
+a|
+. Hexadecimal
+. Decimal
+. Binary
+a|
+. 0x000-0x3FF
+. 0-1023
+. 0b0000000000-0b1111111111
+|===
+
+==== Comments
+On a line, we can also add comments, any text after a ';' is considered a comment and is ignored by the assembler. As POM8 assembly separates each element on a line with a whitespace, there must be a space before the semicolon, valid syntax is shown below:
+
+[source,POM8]
+----
+ADD r0, r0, r1 ; This is a comment
+ADD r0, r0, r1 ;This is a comment
+----
+
+Below is an example of invalid syntax, in this case, the text after the semicolon will not be considered a comment and may cause errors.
+
+[source,POM8]
+----
+ADD r0, r0, r1; This is not a comment
+ADD r0, r0, r1;This is not a comment
+----
+
+==== Labels
+A label is a named reference to whatever line it is defined on, it can replace a hexadecimal value for jumps, branches, and function calls. A label must:
+
+* Start with a letter.
+* Only contain letters and numbers.
+* End with a colon.
+
+Here are a few examples of valid labels.
+
+[source,POM8]
+----
+label0:
+sub16:
+add8Inst:
+----
+
+Labels cannot be the only element on a line, they must be followed by an instruction, with at least one space between them.
+
+[source,POM8]
+----
+add8Inst: ADDI r0, r0, 8
+          ; other code...
+----
+
+Referencing a label is case sensitive. The name of the label must be written exactly as it was defined. For example...
+
+[source,POM8]
+----
+add8Inst: ADDI r0, r0, 8
+          ; other code...
+
+          JMP add8Inst ; correct syntax
+          JMP add8inst ; incorrect syntax, label does not exist
+----
+
+==== Readability
+POM8 assembly is not a fussy language. It will accept any number of spaces, random capital letters, and extremely long label names.
+
+You can write some ugly code, for example...
+
+[source,POM8]
+----
+ LdI r0,                0b11110000
+                        sTA r0, 0X202 ;setupDDR
+start:  lDa r0, 0X200       ;       get     input
+            AdDi        r1, r0, 5  ; aDd 5 to inp
+
+LDI             r2,         4
+  ThisIsWhenWeShift:      LSL r1, r1      ; ShftReSUlt
+
+
+      SubI r2,  R2,             1
+     BrZ                 done
+            JMP                 ThisIsWhenWeShift
+  done:  StA R1, 0x201   ;        out!!!
+        JmP         start
+----
+
+The assembler will happily sanitise and compile this, however it is completely unreadable. The language offers a great deal of flexibility to try to ensure you can comfortably code in whatever style you see fit.
+
+However this places more importance on you, as a programmer, to make sure your code is readable and follows a consistent standard. Let's highlight some of the issues with the above code:
+
+* Inconsistent use of capital letters.
+* Non-informative comments.
+* Inconsistent spacing between elements.
+* Use of extremely long label names.
+
+Let's look at a much cleaner version of the code:
+
+[source,POM8]
+----
+            LDI r0, 0b11110000
+            STA r0, 0x202   ; store 11110000 in the GPIO DDR
+
+start:      LDA r0, 0x200   ; get input
+            ADDI r1, r0, 5  ; add 5 to the input
+
+            LDI r2, 4
+shift:      LSL r1, r1      ; shift result to align with output pins
+            SUBI r2, r2, 1
+            BRZ done
+            JMP shift
+
+done:       STA r1, 0x201   ; output result
+            JMP start
+----
+
+Effort has been put in to make sure that labels are short but informative, capital letters are used consistenly, and comments start in the same place on every line. Additionally, the key parts of the program are visually separated using empty lines.
+
+=== Coding Common Programming Constructs
+This section will go over creating the common programming constructs, selection, iteration, and functions.
+
+==== Selection
+Selection is what is commonly known as conditional statements, these statements run different code based on some condition(s) being met. For example, the if-else chain in the Python code shown below.
+
+[source,python]
+----
+if (var == 0):
+    # Some code...
+else:
+    # Some other code...
+
+# Code that runs after...
+----
+
+These lines of Python would convert to the lines of POM8 assembly shown below. The first line of assembly generates status flags depending on the value of r0, if this value is zero then the <<_status_register, Z-flag>> will be set. Then we can check if r0 has a value of zero using the <<_brz, BRZ>> instruction.
+
+[source,POM8]
+----
+        ; use the value of var (r0) to set status flags
+        ADDI r0, r0, 0
+        ; if var (r0) equals 0, goto "zero" label
+        BRZ zero
+
+        ; Some other code...
+        ; exit the if statement
+        BRA both
+
+zero:   ; Some code...
+
+both:   ; Code that runs after...
+----
+
+The else branch will run if var does not equal zero. In high-level languages, we understand that we exit the if-statement once either:
+
+* All conditions are evaluated.
+* Or one condition is true and the code within it has run.
+
+In terms of instruction order, the code marked with the "both" label executes after the code marked by the "zero" label, therefore it can be executed without branching if var equals zero. However, when this is not true, we need to skip over the code for the zero condition. Hence the need to use a <<_bra, BRA>> instruction to exit the if statement.
+
+==== Iteration
+Iteration is the process of repeating instructions without having to write them multiple times. This often makes code easier to read in high-level languages, but it can also reduce the size of the code in memory.
+
+===== For Loops
+Within high-level languages, the most common types of loop are the for loop and the while loop. First we are going to look at the for loop, Python example shown below.
+
+[source,python]
+----
+for i in range(5):
+        print(f"The index is: {i}")
+----
+
+This loop will print the value of the iterator, i, which starts at zero. For each iteration:
+
+. We check if i is within the defined range, the stop value of five being non-inclusive. The range is therefore 0, 1, 2, 3, 4. Meaning that at the start of each iteration, we check if i is more than or equal to five.
+. At the end of each iteration, i is incremented.
+
+Let's see what this code looks like in POM8 assembly. Once again with printing abstracted.
+
+[%linenums,POM8]
+----
+        ; setup the loop
+        LDI r0, 0       ; initialise i
+
+loop:   ; print i
+        ADDI r0, r0, 1  ; increment i
+        SUBI r1, r0, 5
+        BRN loop        ; if i is less than 5, loop
+
+        HLT             ; if i was more than 5, halt
+----
+
+Line 2 initialises i at zero, this step is not technically required but is done for demonstration purposes. During the loop, we:
+
+. print i
+. Check if i is within range by subtracting five.
+. If the result of subtraction is negative with the <<_status_register, N-flag>> being set then we know that i is less than five and we branch to the loop label on line four to start the next iteration.
+
+Once i is more than or equal to five, we exit the loop and halt program execution on line nine. The order of events is slightly different here than in Python, in Python we check the condition at the start of the loop then increment at the end of it, but in assembly we check the condition after incrementing at the end of the loop. There is no real difference in how these approaches behave, however the latter ends up reading much nicer in assembly.
+
+===== While Loops
+While loops are condition controlled, they will loop while a certain condition condition is met.
+
+[source,python]
+----
+i = 5
+while i == 5:
+        print("Increment i? (Y or N)")
+        x = input()
+        if x == "Y":
+                i = i + 1
+----
+
+The above loops while i is equal to 5, each iteration it asks the user if they want to increment i, if they answer is "Y" then i is incremented. The condition for a while loop is evaluated at the start of each iteration, if the condition is true then the code in the loop is exectued, otherwise we exit the loop.
+
+Let's write this code in POM8 assembly. We will take our input from one of our GPIO pins, we will setup the pins using the <<_GPIO, Data Direction Register (DDR)>> and read values from the <<_GPIO, input register (in_reg)>>. We can imagine that a button is connected to pin 1, if this button was pressed then we want to increment i.
+
+[%linenums,POM8]
+----
+        LDI r0, 0b00000000
+        STA r0, 0x202   ; initialise DDR
+        LDI r0, 5       ; initialise i as 5
+
+        JMP loop        ; jump to loop condition first
+
+        ; loop contents
+cloop:  LDA r1, 0x200   ; get input from GPIO pins
+        ANDI r1, r1, 0b00000001 ; check for input on pin 1 (P0)
+        BRZ loop        ; if zero then no input, skip to loop condition
+        ADDI r0, r0, 1  ; otherwise increment i
+
+        ; loop condition
+loop:   SUBI r1, r0, 5  ; set status flags for i == 5
+        BRZ cloop       ; branch to loop content if i == 5
+
+        HLT             ; loop condition isn't met, halt
+----
+
+The first 3 lines initialise the <<_GPIO, Data Direction Register (DDR)>> and i, in this case we give i its starting value of five and set all GPIO pins as inputs.
+
+The loop itself is a bit more complicated, let's focus on the structure for now. The while loop has 2 parts, the condition and the contents. When entering the loop, the first thing we do is jump to the loop condition, then if the condition is true we branch to the loop contents. Otherwise we exit the loop and halt the program.
+
+You may be wondering why we don't just have the loop condition on lines 5 and 6 before the loop contents. On paper it may seem more efficient as we don't have to jump to it when we enter the loop, but let's see what that looks like.
+
+[%linenums,POM8]
+----
+        LDI r0, 0b00000000
+        STA r0, 0x202   ; initialise DDR
+        LDI r0, 5       ; initialise i as 5
+
+        ; loop condition
+loop:   SUBI r1, r0, 5  ; set status flags for i == 5
+        BRZ cloop       ; branch to loop content if i == 5
+        JMP done        ; loop condition not met, exit loop
+
+        ; loop contents
+cloop:  LDA r1, 0x200   ; get input from GPIO pins
+        ANDI r1, r1, 0b00000001 ; check for input on pin 1 (P0)
+        BRZ loop        ; if zero then no input, skip to loop condition
+        ADDI r0, r0, 1  ; otherwise increment i
+        JMP loop        ; jump to loop condition
+
+done:   HLT
+----
+
+This structure has added an additional jump per iteration as we need to continually jump to the condition after each iteration. It also added another jump for exiting the loop.
+
+This massively decreases the performance compared to the previous structure. No jump is needed to exit the loop as the code following the loop is directly after the condition check, as such it will run if the condition is false and no branching occurs.
+
+Additionally, rather than jumping back to the condition after each iteration, we jump to the condition once when we enter the loop.
